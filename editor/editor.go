@@ -1,6 +1,7 @@
 package editor
 
 import (
+	"os"
 	"strconv"
 
 	"github.com/gdamore/tcell/v2"
@@ -10,20 +11,27 @@ const (
 	LINE_CELL_ROW = 20
 	LINE_CELL_COL = 30
 
+	EDITOR_TAB_SIZE = 4
+
 	UP = iota
 	DOWN
 	RIGHT
 	LEFT
 )
 
+type EditorConfiguration struct {
+	Filepath *string
+}
+
 type Editor struct {
 	screen tcell.Screen
 	buffer Buffer
 	cursor Cursor
 	quit   bool
+	config EditorConfiguration
 }
 
-func New() (*Editor, error) {
+func New(editorConfig EditorConfiguration) (*Editor, error) {
 	screen, err := tcell.NewScreen()
 	if err != nil {
 		return nil, err
@@ -39,10 +47,11 @@ func New() (*Editor, error) {
 	screen.SetStyle(editorStyle)
 
 	return &Editor{
-		screen: screen,
-		buffer: NewBuffer(),
-		cursor: NewCursor(),
-		quit:   false,
+		screen:   screen,
+		buffer:   NewBuffer(),
+		cursor:   NewCursor(),
+		quit:     false,
+		config:   editorConfig,
 	}, nil
 }
 
@@ -68,6 +77,10 @@ func (editor *Editor) removeChar() error {
 
 func (editor *Editor) insertNewLine() error {
 	return editor.buffer.InsertNewLine(&editor.cursor)
+}
+
+func (editor *Editor) insertTab() error {
+	return editor.buffer.InsertTab(&editor.cursor)
 }
 
 func (editor *Editor) moveCursorUp() {
@@ -126,7 +139,7 @@ func (editor *Editor) moveCursorRight() {
 		return
 	}
 
-	if cursorLine >= editor.buffer.Count() - 1 {
+	if cursorLine >= editor.buffer.Count()-1 {
 		return
 	}
 
@@ -144,8 +157,10 @@ func (editor *Editor) HandleEvent(ev tcell.Event) error {
 		switch {
 		case ev.Key() == tcell.KeyEscape:
 			editor.Quit()
-		case ev.Key() == tcell.KeyDelete:
+		case ev.Key() == tcell.KeyBackspace2:
 			editor.removeChar()
+		case ev.Key() == tcell.KeyTab:
+			editor.insertTab()
 		case ev.Key() == tcell.KeyEnter:
 			editor.insertNewLine()
 		case ev.Key() == tcell.KeyUp:
@@ -204,4 +219,36 @@ func (editor *Editor) Render() {
 	editor.renderInfo()
 	editor.renderCursor()
 	editor.screen.Show()
+}
+
+func (editor *Editor) loadFileFromConfiguration() error {
+	fileContent, err := os.ReadFile(*editor.config.Filepath)
+	if err != nil {
+		return err
+	}
+
+	for _, c := range fileContent {
+		switch c {
+		case '\n':
+			err = editor.insertNewLine()
+		case '\t':
+			err = editor.insertTab()
+		default:
+			err = editor.insertChar(rune(c))
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (editor *Editor) Load() error {
+	if editor.config.Filepath == nil {
+		return nil
+	}
+
+	return editor.loadFileFromConfiguration()
 }

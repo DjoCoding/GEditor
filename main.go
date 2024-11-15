@@ -7,8 +7,26 @@ import (
 )
 
 func main() {
-	editor, err := editor.New()
+	var config editor.EditorConfiguration
+
+	// for now i can only pass the filepath as an argument
+	for i := 1; i < len(os.Args); i++ {
+		arg := os.Args[i]
+		switch arg {
+		default:
+			config.Filepath = &arg
+		}
+	}
+
+	editor, err := editor.New(config)
 	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	err = editor.Load()
+	if err != nil {
+		editor.Close()
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

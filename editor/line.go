@@ -2,8 +2,6 @@ package editor
 
 import "fmt"
 
-// first cursor position: cursor = 1
-
 type Line struct {
 	content string
 }

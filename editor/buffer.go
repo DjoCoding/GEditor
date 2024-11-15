@@ -2,7 +2,10 @@ package editor
 
 import "fmt"
 
-const BUFFER_INITIAL_CAPACITY = 10
+const (
+	BUFFER_INITIAL_CAPACITY = 1
+	BUFFER_TAB_SIZE         = 4
+)
 
 type Buffer struct {
 	lines []Line
@@ -99,7 +102,6 @@ func (buffer *Buffer) RemoveChar(cursor *Cursor) error {
 	return buffer.RemoveString(1, cursor)
 }
 
-// this will work only at the end of the line
 func (buffer *Buffer) InsertNewLine(cursor *Cursor) error {
 	if !buffer.isValidLine(cursor.GetLine()) {
 		return fmt.Errorf("[BUFFER ERROR] invalid cursor position, failed to insert a new line")
@@ -115,6 +117,17 @@ func (buffer *Buffer) InsertNewLine(cursor *Cursor) error {
 
 	cursor.SetLine(cursor.GetLine() + 1)
 	cursor.SetCol(0)
+
+	return nil
+}
+
+func (buffer *Buffer) InsertTab(cursor *Cursor) error {
+	for i := 0; i < BUFFER_TAB_SIZE; i++ {
+		err := buffer.InsertChar(' ', cursor)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
