@@ -1,6 +1,7 @@
 package editor
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 
@@ -47,11 +48,11 @@ func New(editorConfig EditorConfiguration) (*Editor, error) {
 	screen.SetStyle(editorStyle)
 
 	return &Editor{
-		screen:   screen,
-		buffer:   NewBuffer(),
-		cursor:   NewCursor(),
-		quit:     false,
-		config:   editorConfig,
+		screen: screen,
+		buffer: NewBuffer(),
+		cursor: NewCursor(),
+		quit:   false,
+		config: editorConfig,
 	}, nil
 }
 
@@ -222,6 +223,18 @@ func (editor *Editor) Render() {
 }
 
 func (editor *Editor) loadFileFromConfiguration() error {
+	fileInfo, err := os.Stat(*editor.config.Filepath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	if fileInfo.IsDir() {
+		return fmt.Errorf("can not open directories in this text editor")
+	}
+
 	fileContent, err := os.ReadFile(*editor.config.Filepath)
 	if err != nil {
 		return err
