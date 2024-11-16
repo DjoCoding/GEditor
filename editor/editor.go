@@ -2,6 +2,7 @@ package editor
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 
@@ -9,10 +10,11 @@ import (
 )
 
 const (
-	LINE_CELL_ROW = 20
+	LINE_CELL_ROW = 28
 	LINE_CELL_COL = 30
 
-	EDITOR_TAB_SIZE = 4
+	UPPER_CURSOR_BOUNDS  = 3
+	BOTTOM_CURSOR_BOUNDS = 3
 
 	UP = iota
 	DOWN
@@ -25,11 +27,13 @@ type EditorConfiguration struct {
 }
 
 type Editor struct {
-	screen tcell.Screen
-	buffer Buffer
-	cursor Cursor
-	quit   bool
-	config EditorConfiguration
+	screen          tcell.Screen
+	buffer          Buffer
+	realCursor      Cursor
+	relativeCursor  Cursor
+	renderingCursor Cursor
+	quit            bool
+	config          EditorConfiguration
 }
 
 func New(editorConfig EditorConfiguration) (*Editor, error) {
@@ -48,11 +52,13 @@ func New(editorConfig EditorConfiguration) (*Editor, error) {
 	screen.SetStyle(editorStyle)
 
 	return &Editor{
-		screen: screen,
-		buffer: NewBuffer(),
-		cursor: NewCursor(),
-		quit:   false,
-		config: editorConfig,
+		screen:          screen,
+		buffer:          NewBuffer(),
+		realCursor:      NewCursor(),
+		relativeCursor:  NewCursor(),
+		renderingCursor: NewCursor(),
+		quit:            false,
+		config:          editorConfig,
 	}, nil
 }
 
@@ -69,83 +75,83 @@ func (editor *Editor) Quit() {
 }
 
 func (editor *Editor) insertChar(c rune) error {
-	return editor.buffer.InsertChar(c, &editor.cursor)
+	return editor.buffer.InsertChar(c, &editor.realCursor)
 }
 
 func (editor *Editor) removeChar() error {
-	return editor.buffer.RemoveChar(&editor.cursor)
+	return editor.buffer.RemoveChar(&editor.realCursor)
 }
 
 func (editor *Editor) insertNewLine() error {
-	return editor.buffer.InsertNewLine(&editor.cursor)
+	return editor.buffer.InsertNewLine(&editor.realCursor)
 }
 
 func (editor *Editor) insertTab() error {
-	return editor.buffer.InsertTab(&editor.cursor)
+	return editor.buffer.InsertTab(&editor.realCursor)
 }
 
 func (editor *Editor) moveCursorUp() {
-	cursorLine := editor.cursor.GetLine()
+	realCursorLine := editor.realCursor.GetLine()
 
-	if cursorLine == 0 {
-		editor.cursor.SetCol(0)
+	if realCursorLine == 0 {
+		editor.realCursor.SetCol(0)
 		return
 	}
 
-	editor.cursor.SetLine(cursorLine - 1)
+	editor.realCursor.SetLine(realCursorLine - 1)
 
-	prevLineCount := editor.buffer.lines[cursorLine-1].Count()
-	if prevLineCount < editor.cursor.GetCol() {
-		editor.cursor.SetCol(prevLineCount)
+	prevLineCount := editor.buffer.lines[realCursorLine-1].Count()
+	if prevLineCount < editor.realCursor.GetCol() {
+		editor.realCursor.SetCol(prevLineCount)
 	}
 }
 
 func (editor *Editor) moveCursorDown() {
-	cursorLine := editor.cursor.GetLine()
+	realCursorLine := editor.realCursor.GetLine()
 
-	if cursorLine == editor.buffer.Count()-1 {
-		editor.cursor.SetCol(editor.buffer.LastLineCount())
+	if realCursorLine == editor.buffer.Count()-1 {
+		editor.realCursor.SetCol(editor.buffer.LastLineCount())
 		return
 	}
 
-	editor.cursor.SetLine(cursorLine + 1)
+	editor.realCursor.SetLine(realCursorLine + 1)
 
-	nextLineCount := editor.buffer.lines[cursorLine+1].Count()
-	if nextLineCount < editor.cursor.GetCol() {
-		editor.cursor.SetCol(nextLineCount)
+	nextLineCount := editor.buffer.lines[realCursorLine+1].Count()
+	if nextLineCount < editor.realCursor.GetCol() {
+		editor.realCursor.SetCol(nextLineCount)
 	}
 }
 
 func (editor *Editor) moveCursorLeft() {
-	cursorCol := editor.cursor.GetCol()
-	if cursorCol > 0 {
-		editor.cursor.SetCol(cursorCol - 1)
+	realCursorCol := editor.realCursor.GetCol()
+	if realCursorCol > 0 {
+		editor.realCursor.SetCol(realCursorCol - 1)
 		return
 	}
 
-	cursorLine := editor.cursor.GetLine()
-	if cursorLine == 0 {
+	realCursorLine := editor.realCursor.GetLine()
+	if realCursorLine == 0 {
 		return
 	}
 
-	editor.cursor.SetLine(cursorLine - 1)
-	editor.cursor.SetCol(editor.buffer.lines[editor.cursor.GetLine()].Count())
+	editor.realCursor.SetLine(realCursorLine - 1)
+	editor.realCursor.SetCol(editor.buffer.lines[editor.realCursor.GetLine()].Count())
 }
 
 func (editor *Editor) moveCursorRight() {
-	cursorLine, cursorCol := editor.cursor.Get()
+	realCursorLine, realCursorCol := editor.realCursor.Get()
 
-	if cursorCol < editor.buffer.lines[cursorLine].Count() {
-		editor.cursor.SetCol(cursorCol + 1)
+	if realCursorCol < editor.buffer.lines[realCursorLine].Count() {
+		editor.realCursor.SetCol(realCursorCol + 1)
 		return
 	}
 
-	if cursorLine >= editor.buffer.Count()-1 {
+	if realCursorLine >= editor.buffer.Count()-1 {
 		return
 	}
 
-	editor.cursor.SetLine(cursorLine + 1)
-	editor.cursor.SetCol(0)
+	editor.realCursor.SetLine(realCursorLine + 1)
+	editor.realCursor.SetCol(0)
 }
 
 func (editor *Editor) PollEvent() tcell.Event {
@@ -188,19 +194,47 @@ func (editor *Editor) renderLine(lineIndex int, row int) {
 	}
 }
 
+func (editor *Editor) updateRenderingCursor() {
+	for editor.realCursor.GetLine() < editor.renderingCursor.GetLine()+UPPER_CURSOR_BOUNDS {
+		editor.renderingCursor.SetLine(editor.renderingCursor.GetLine() - 1)
+		if editor.renderingCursor.GetLine() < 0 {
+			editor.renderingCursor.SetLine(0)
+			return
+		}
+	}
+
+	_, h := editor.screen.Size()
+	h -= BOTTOM_CURSOR_BOUNDS
+	for editor.realCursor.GetLine() > editor.renderingCursor.GetLine()+h-BOTTOM_CURSOR_BOUNDS {
+		editor.renderingCursor.SetLine(editor.renderingCursor.GetLine() + 1)
+	}
+}
+
+func (editor *Editor) updateRelativeCursor() {
+	editor.relativeCursor.Set(editor.realCursor.GetLine()-editor.renderingCursor.GetLine(), editor.realCursor.GetCol()-editor.renderingCursor.GetCol())
+}
+
 func (editor *Editor) renderContent() {
-	for i := 0; i < len(editor.buffer.lines); i++ {
-		editor.renderLine(i, i)
+	editor.updateRenderingCursor()
+
+	_, h := editor.screen.Size()
+	h -= BOTTOM_CURSOR_BOUNDS
+
+	numberLinesToRender := int(math.Min(float64(h), float64(editor.buffer.Count()-editor.renderingCursor.GetLine())))
+
+	for i := 0; i < numberLinesToRender; i++ {
+		editor.renderLine(editor.renderingCursor.GetLine()+i, i)
 	}
 }
 
 func (editor *Editor) renderCursor() {
-	editor.screen.ShowCursor(editor.cursor.GetCol(), editor.cursor.GetLine())
+	editor.updateRelativeCursor()
+	editor.screen.ShowCursor(editor.relativeCursor.GetCol(), editor.relativeCursor.GetLine())
 }
 
 func (editor *Editor) renderInfo() {
-	lineString := strconv.Itoa(editor.cursor.GetLine())
-	colString := strconv.Itoa(editor.cursor.GetCol())
+	lineString := strconv.Itoa(editor.realCursor.GetLine())
+	colString := strconv.Itoa(editor.realCursor.GetCol())
 
 	for i, c := range lineString {
 		editor.screen.SetContent(LINE_CELL_COL+i, LINE_CELL_ROW, c, nil, tcell.StyleDefault)
