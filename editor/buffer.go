@@ -117,6 +117,22 @@ func (buffer *Buffer) RemoveString(count int, cursor *Cursor) error {
 }
 
 func (buffer *Buffer) RemoveChar(cursor *Cursor) error {
+	if cursor.GetCol() < BUFFER_TAB_SIZE {
+		return buffer.RemoveString(1, cursor)
+	}
+
+	isTab := true
+	for i := cursor.GetCol() - BUFFER_TAB_SIZE; i < cursor.GetCol(); i++ {
+		if buffer.lines[cursor.GetLine()].content[i] != ' ' {
+			isTab = false
+			break
+		}
+	}
+
+	if isTab {
+		return buffer.RemoveString(BUFFER_TAB_SIZE, cursor)
+	}
+
 	return buffer.RemoveString(1, cursor)
 }
 

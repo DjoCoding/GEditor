@@ -163,7 +163,7 @@ func (editor *Editor) HandleEvent(ev tcell.Event) error {
 	case *tcell.EventKey:
 		switch {
 		case ev.Key() == tcell.KeyEscape:
-			editor.Quit()
+			editor.QuitAndSave()
 		case ev.Key() == tcell.KeyBackspace2:
 			editor.removeChar()
 		case ev.Key() == tcell.KeyTab:
@@ -185,7 +185,7 @@ func (editor *Editor) HandleEvent(ev tcell.Event) error {
 			return editor.insertChar(ev.Rune())
 		}
 	}
-
+	
 	return nil
 }
 
@@ -334,4 +334,9 @@ func (editor *Editor) Save() error {
 	}
 
 	return editor.saveContent(f)
+}
+
+func (editor *Editor) QuitAndSave() error {
+	editor.Quit()
+	return editor.Save()
 }
