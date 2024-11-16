@@ -24,13 +24,19 @@ const (
 	RIGHT
 	LEFT
 
-	RUNNING_MODE = iota
+	NORMAL_MODE = iota
 	EXITING_MODE
 	SEARCHING_MODE
 )
 
 type EditorConfiguration struct {
 	Filepath *string
+}
+
+type EditorSearchModeParams struct {
+	text      string // this is used for the search and replace
+	locations []Location
+	current   int // points to the current location on which the cursor is focused
 }
 
 type Editor struct {
@@ -41,7 +47,7 @@ type Editor struct {
 	renderingCursor Location
 	config          EditorConfiguration
 	mode            int
-	text            string // this is used for the search and replace
+	searchParams    EditorSearchModeParams
 }
 
 func New(editorConfig EditorConfiguration) (*Editor, error) {
@@ -62,11 +68,12 @@ func New(editorConfig EditorConfiguration) (*Editor, error) {
 	return &Editor{
 		screen:          screen,
 		buffer:          NewBuffer(),
-		realCursor:      NewLocation(),
-		relativeCursor:  NewLocation(),
-		renderingCursor: NewLocation(),
-		mode:            RUNNING_MODE,
+		realCursor:      Location{},
+		relativeCursor:  Location{},
+		renderingCursor: Location{},
+		mode:            NORMAL_MODE,
 		config:          editorConfig,
+		searchParams:    EditorSearchModeParams{},
 	}, nil
 }
 
@@ -171,7 +178,7 @@ func (editor *Editor) handleNormalModeEvent(ev tcell.Event) error {
 	case *tcell.EventKey:
 		switch {
 		case ev.Key() == tcell.KeyEscape:
-			editor.QuitAndSave()
+			editor.quitAndSave()
 		case ev.Key() == tcell.KeyBackspace2:
 			editor.removeChar()
 		case ev.Key() == tcell.KeyTab:
@@ -187,7 +194,7 @@ func (editor *Editor) handleNormalModeEvent(ev tcell.Event) error {
 		case ev.Key() == tcell.KeyRight:
 			editor.moveCursorRight()
 		case ev.Key() == tcell.KeyCtrlS:
-			err := editor.Save()
+			err := editor.save()
 			return err
 		case ev.Key() == tcell.KeyCtrlF:
 			editor.mode = SEARCHING_MODE
@@ -199,12 +206,34 @@ func (editor *Editor) handleNormalModeEvent(ev tcell.Event) error {
 	return nil
 }
 
-func (editor *Editor) SearchAndUpdateCursor() {
-	newCursor, found := editor.Search(editor.text)
-	if !found {
+func (editor *Editor) searchAndUpdateCursor() {
+	// reset the search pointer
+	editor.searchParams.current = 0
+
+	// update the search locations
+	editor.updateSearchLocations(editor.searchParams.text)
+	if len(editor.searchParams.locations) == 0 {
 		return
 	}
-	editor.realCursor = newCursor
+
+	// set the real cursor
+	row, col := editor.searchParams.locations[editor.searchParams.current].Get()
+	editor.realCursor = NewLocation(row, col+len(editor.searchParams.text))
+}
+
+func (editor *Editor) updateSearchPointer() {
+	locationsLen := len(editor.searchParams.locations)
+	if locationsLen == 0 {
+		return
+	}
+
+	// incrementing the pointer
+	editor.searchParams.current++
+	editor.searchParams.current %= locationsLen
+
+	// updating the real cursor
+	row, col := editor.searchParams.locations[editor.searchParams.current].Get()
+	editor.realCursor = NewLocation(row, col+len(editor.searchParams.text))
 }
 
 func (editor *Editor) handleSearchModeEvent(ev tcell.Event) error {
@@ -214,23 +243,23 @@ func (editor *Editor) handleSearchModeEvent(ev tcell.Event) error {
 	case *tcell.EventKey:
 		switch {
 		case ev.Key() == tcell.KeyEscape:
-			editor.text = ""
-			editor.mode = RUNNING_MODE
+			editor.searchParams.text = ""
+			editor.mode = NORMAL_MODE
 		case ev.Key() == tcell.KeyBackspace2:
-			if len(editor.text) != 0 {
-				editor.text = editor.text[:len(editor.text)-1]
+			if len(editor.searchParams.text) != 0 {
+				editor.searchParams.text = editor.searchParams.text[:len(editor.searchParams.text)-1]
 				shouldMakeSearch = true
 			}
 		case ev.Key() == tcell.KeyEnter:
-			shouldMakeSearch = true
+			editor.updateSearchPointer()
 		default:
-			editor.text += string(ev.Rune())
+			editor.searchParams.text += string(ev.Rune())
 			shouldMakeSearch = true
 		}
 	}
 
 	if shouldMakeSearch {
-		editor.SearchAndUpdateCursor()
+		editor.searchAndUpdateCursor()
 	}
 
 	return nil
@@ -238,7 +267,7 @@ func (editor *Editor) handleSearchModeEvent(ev tcell.Event) error {
 
 func (editor *Editor) HandleEvent(ev tcell.Event) error {
 	switch editor.mode {
-	case RUNNING_MODE:
+	case NORMAL_MODE:
 		return editor.handleNormalModeEvent(ev)
 	case SEARCHING_MODE:
 		return editor.handleSearchModeEvent(ev)
@@ -247,10 +276,45 @@ func (editor *Editor) HandleEvent(ev tcell.Event) error {
 	return nil
 }
 
-func (editor *Editor) renderLine(lineIndex int, row int) {
+func (editor *Editor) renderLineInNormalMode(lineIndex int, row int) {
 	line := editor.buffer.lines[lineIndex]
 
 	for i, c := range line.GetContent() {
+		editor.screen.SetContent(i, row, c, nil, tcell.StyleDefault)
+	}
+}
+
+// no sense function used to lookup a location in all locations (helper method)
+func (editor *Editor) lookupLocationInSearchLocations(loc Location) bool {
+	for _, location := range editor.searchParams.locations {
+		if location.Cmp(loc) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (editor *Editor) renderLineInSearchMode(lineIndex int, row int) {
+	style := tcell.StyleDefault.Bold(true).Underline(true).Background(tcell.ColorDarkCyan)
+	line := editor.buffer.lines[lineIndex]
+
+	count := 0
+
+	for i, c := range line.GetContent() {
+		currentLocation := NewLocation(lineIndex, i)
+		found := editor.lookupLocationInSearchLocations(currentLocation)
+
+		if found {
+			count = len(editor.searchParams.text)
+		}
+
+		if count > 0 {
+			editor.screen.SetContent(i, row, c, nil, style)
+			count--
+			continue
+		}
+
 		editor.screen.SetContent(i, row, c, nil, tcell.StyleDefault)
 	}
 }
@@ -275,30 +339,61 @@ func (editor *Editor) updateRelativeCursor() {
 	editor.relativeCursor.Set(editor.realCursor.GetLine()-editor.renderingCursor.GetLine(), editor.realCursor.GetCol()-editor.renderingCursor.GetCol())
 }
 
-func (editor *Editor) renderContent() {
-	editor.updateRenderingCursor()
-
+// no sense function (helper method to get the number of lines to render)
+func (editor *Editor) getNumberLinesToRender() int {
 	_, h := editor.screen.Size()
 	h -= BOTTOM_CURSOR_BOUNDS
 
-	numberLinesToRender := int(math.Min(float64(h), float64(editor.buffer.Count()-editor.renderingCursor.GetLine())))
+	return int(math.Min(float64(h), float64(editor.buffer.Count()-editor.renderingCursor.GetLine())))
+}
 
+// render the content of the editor buffer in the normal mode
+// sub function
+func (editor *Editor) renderContentInNormalMode() {
+	numberLinesToRender := editor.getNumberLinesToRender()
 	for i := 0; i < numberLinesToRender; i++ {
-		editor.renderLine(editor.renderingCursor.GetLine()+i, i)
+		editor.renderLineInNormalMode(editor.renderingCursor.GetLine()+i, i)
 	}
 }
 
+// render the content of the editor buffer in the search mode
+// sub function
+func (editor *Editor) renderContentInSearchMode() {
+	numberLinesToRender := editor.getNumberLinesToRender()
+	for i := 0; i < numberLinesToRender; i++ {
+		editor.renderLineInSearchMode(editor.renderingCursor.GetLine()+i, i)
+	}
+}
+
+// render the content of the editor buffer
+// main function
+func (editor *Editor) renderContent() {
+	editor.updateRenderingCursor()
+
+	switch editor.mode {
+	case NORMAL_MODE:
+		editor.renderContentInNormalMode()
+	case SEARCHING_MODE:
+		editor.renderContentInSearchMode()
+	}
+}
+
+// render the cursor of the editor (real Cursor)
+// main function
 func (editor *Editor) renderCursor() {
 	editor.updateRelativeCursor()
 	editor.screen.ShowCursor(editor.relativeCursor.GetCol(), editor.relativeCursor.GetLine())
 }
 
+// render any text to the editor screen (helper function)
 func (editor *Editor) renderText(line, col int, text string) {
 	for i, c := range text {
 		editor.screen.SetContent(col+i, line, c, nil, tcell.StyleDefault)
 	}
 }
 
+// render information (mode, cursor)
+// sub function
 func (editor *Editor) renderInfo() {
 	lineString := strconv.Itoa(editor.realCursor.GetLine())
 	colString := strconv.Itoa(editor.realCursor.GetCol())
@@ -308,10 +403,12 @@ func (editor *Editor) renderInfo() {
 	editor.renderText(LINE_CELL_ROW, LINE_CELL_COL+len(lineString)+1, colString)
 
 	if editor.mode == SEARCHING_MODE {
-		editor.renderText(PROMPT_SCREEN_LINE_BEGIN+1, PROMPT_SCREEN_COL_BEGIN, "text: "+editor.text)
+		editor.renderText(PROMPT_SCREEN_LINE_BEGIN+1, PROMPT_SCREEN_COL_BEGIN, "text: "+editor.searchParams.text)
 	}
 }
 
+// render the content of the editor together with some information
+// main function
 func (editor *Editor) Render() {
 	editor.screen.Clear()
 	editor.renderContent()
@@ -320,6 +417,7 @@ func (editor *Editor) Render() {
 	editor.screen.Show()
 }
 
+// load a file using the EditorConfiguration fields (passed as args)
 func (editor *Editor) loadFileFromConfiguration() error {
 	fileInfo, err := os.Stat(*editor.config.Filepath)
 	if err != nil {
@@ -356,6 +454,8 @@ func (editor *Editor) loadFileFromConfiguration() error {
 	return nil
 }
 
+// load file to the editor buffer
+// main function
 func (editor *Editor) Load() error {
 	if editor.config.Filepath == nil {
 		return nil
@@ -364,6 +464,8 @@ func (editor *Editor) Load() error {
 	return editor.loadFileFromConfiguration()
 }
 
+// save the content of the editor buffer to a file
+// main function
 func (editor *Editor) saveContent(f *os.File) error {
 	for _, line := range editor.buffer.lines {
 		_, err := f.Write([]byte(line.content))
@@ -379,11 +481,12 @@ func (editor *Editor) saveContent(f *os.File) error {
 	return nil
 }
 
+// not implemented yet
 func (editor *Editor) saveFromConfiguration() error {
 	return nil
 }
 
-func (editor *Editor) Save() error {
+func (editor *Editor) save() error {
 	if editor.config.Filepath != nil {
 		return editor.saveFromConfiguration()
 	}
@@ -397,11 +500,12 @@ func (editor *Editor) Save() error {
 	return editor.saveContent(f)
 }
 
-func (editor *Editor) QuitAndSave() error {
+func (editor *Editor) quitAndSave() error {
 	editor.Quit()
-	return editor.Save()
+	return editor.save()
 }
 
-func (editor *Editor) Search(text string) (location Location, found bool) {
-	return editor.buffer.Search(editor.realCursor, text)
+// search a text in the editor buffer and set all the locations where found
+func (editor *Editor) updateSearchLocations(text string) {
+	editor.searchParams.locations = editor.buffer.Search(editor.realCursor, text)
 }

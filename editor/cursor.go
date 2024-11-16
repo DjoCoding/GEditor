@@ -5,10 +5,10 @@ type Location struct {
 	col  int
 }
 
-func NewLocation() Location {
+func NewLocation(line, col int) Location {
 	return Location{
-		line: 0,
-		col:  0,
+		line: line,
+		col:  col,
 	}
 }
 

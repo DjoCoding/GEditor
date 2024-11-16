@@ -172,46 +172,15 @@ func (buffer *Buffer) InsertTab(cursor *Location) error {
 }
 
 // get the end of the 'text' in the whole buffer
-func (buffer *Buffer) Search(currentLocation Location, text string) (Location, bool) {
-	// search in current row
-	col := 0
-	found := false
+func (buffer *Buffer) Search(currentLocation Location, text string) []Location {
+	var locations []Location
 
-	col, found = buffer.lines[currentLocation.GetLine()].Search(currentLocation.GetCol(), text)
-	if found {
-		return Location{
-			line: currentLocation.GetLine(),
-			col:  col,
-		}, true
-	}
-
-	for i := currentLocation.GetLine() + 1; i < buffer.Count(); i++ {
-		col, found = buffer.lines[i].Search(0, text)
-		if found {
-			return Location{
-				line: i,
-				col:  col,
-			}, true
+	for row, line := range buffer.lines {
+		cols := line.Search(0, text)
+		for _, col := range cols {
+			locations = append(locations, NewLocation(row, col))
 		}
 	}
 
-	for i := 0; i < currentLocation.GetLine(); i++ {
-		col, found := buffer.lines[i].Search(0, text)
-		if found {
-			return Location{
-				line: i,
-				col:  col,
-			}, true
-		}
-	}
-
-	col, found = buffer.lines[currentLocation.GetLine()].Search(0, text)
-	if !found {
-		return NewLocation(), false
-	}
-
-	return Location{
-		line: currentLocation.GetLine(),
-		col:  col,
-	}, true
+	return locations
 }

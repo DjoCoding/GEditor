@@ -67,14 +67,16 @@ func (line *Line) Split(index int) (Line, Line) {
 	return first, second
 }
 
-// get the end of the 'text' in the line 'line'
-func (line *Line) Search(startIndex int, text string) (index int, found bool) {
+// get the start of the 'text' in the line 'line'
+func (line *Line) Search(startIndex int, text string) []int {
+	var indices []int
+
 	for i := startIndex; i < line.Count()-len(text)+1; i++ {
 		s := line.content[i : i+len(text)]
 		if s == text {
-			return i + len(text), true
+			indices = append(indices, i)
 		}
 	}
 
-	return 0, false
+	return indices
 }
