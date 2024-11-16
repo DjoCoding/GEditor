@@ -50,14 +50,29 @@ func (buffer *Buffer) RemoveLine(lineIndex int) error {
 		return fmt.Errorf("[BUFFER ERROR] invalid line index, faild to remove line")
 	}
 
-	var lines []Line = buffer.lines[:lineIndex]
-	lines = append(lines, buffer.lines[lineIndex+1:]...)
+	lines := make([]Line, 0, buffer.Count()-1)
+	for row, line := range buffer.lines {
+		if row == lineIndex {
+			continue
+		}
+		lines = append(lines, line)
+	}
+
 	buffer.lines = lines
 
 	return nil
 }
 
+func (buffer *Buffer) AppendLineContent(lineIndex, lineIndexToAppend int) {
+	buffer.lines[lineIndex].content += buffer.lines[lineIndexToAppend].content
+}
+
 func (buffer *Buffer) RemoveString(count int, cursor *Cursor) error {
+	line, col := cursor.Get()
+	if line == 0 && col == 0 {
+		return nil
+	}
+
 	if buffer.isEmpty() {
 		return nil
 	}
@@ -70,7 +85,7 @@ func (buffer *Buffer) RemoveString(count int, cursor *Cursor) error {
 		return fmt.Errorf("[BUFFER ERROR] invalid cursor position, failed to remove string")
 	}
 
-	charsCount := buffer.lines[cursor.GetLine()].Count()
+	charsCount := cursor.GetCol()
 	if charsCount > count {
 		charsCount = count
 	}
@@ -87,12 +102,15 @@ func (buffer *Buffer) RemoveString(count int, cursor *Cursor) error {
 		return nil
 
 	case count >= 1:
+		prevLineCount := buffer.lines[cursor.GetLine()-1].Count()
+
+		buffer.AppendLineContent(cursor.GetLine()-1, cursor.GetLine())
 		buffer.RemoveLine(cursor.GetLine())
 		count -= 1
 
 		// set the cursor to its place
 		cursor.SetLine(cursor.GetLine() - 1)
-		cursor.SetCol(buffer.lines[cursor.GetLine()].Count())
+		cursor.SetCol(prevLineCount)
 	}
 
 	return buffer.RemoveString(count, cursor)
@@ -107,11 +125,16 @@ func (buffer *Buffer) InsertNewLine(cursor *Cursor) error {
 		return fmt.Errorf("[BUFFER ERROR] invalid cursor position, failed to insert a new line")
 	}
 
-	var splittedLines [2]Line = buffer.lines[cursor.GetLine()].Split(cursor.GetCol())
-
-	var lines []Line = buffer.lines[:cursor.GetLine()]
-	lines = append(lines, splittedLines[0], splittedLines[1])
-	lines = append(lines, buffer.lines[cursor.GetLine()+1:]...)
+	lines := make([]Line, 0, buffer.Count()+1)
+	for row, line := range buffer.lines {
+		if row == cursor.GetLine() {
+			up, down := line.Split(cursor.GetCol())
+			lines = append(lines, up)
+			lines = append(lines, down)
+			continue
+		}
+		lines = append(lines, line)
+	}
 
 	buffer.lines = lines
 

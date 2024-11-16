@@ -61,8 +61,8 @@ func (line *Line) Count() int {
 	return len(line.content)
 }
 
-func (line *Line) Split(index int) [2]Line {
+func (line *Line) Split(index int) (Line, Line) {
 	first := NewLine(line.content[:index])
 	second := NewLine(line.content[index:])
-	return [2]Line{first, second}
+	return first, second
 }

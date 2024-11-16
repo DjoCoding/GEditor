@@ -178,6 +178,9 @@ func (editor *Editor) HandleEvent(ev tcell.Event) error {
 			editor.moveCursorLeft()
 		case ev.Key() == tcell.KeyRight:
 			editor.moveCursorRight()
+		case ev.Key() == tcell.KeyCtrlS:
+			err := editor.Save()
+			return err
 		default:
 			return editor.insertChar(ev.Rune())
 		}
@@ -298,4 +301,37 @@ func (editor *Editor) Load() error {
 	}
 
 	return editor.loadFileFromConfiguration()
+}
+
+func (editor *Editor) saveContent(f *os.File) error {
+	for _, line := range editor.buffer.lines {
+		_, err := f.Write([]byte(line.content))
+		if err != nil {
+			return err
+		}
+		_, err = f.Write([]byte("\n"))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (editor *Editor) saveFromConfiguration() error {
+	return nil
+}
+
+func (editor *Editor) Save() error {
+	if editor.config.Filepath != nil {
+		return editor.saveFromConfiguration()
+	}
+
+	filepath := "./test"
+	f, err := os.OpenFile(filepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+
+	return editor.saveContent(f)
 }
