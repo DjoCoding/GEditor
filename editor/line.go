@@ -16,12 +16,12 @@ func (line *Line) GetContent() string {
 	return line.content
 }
 
-func (line *Line) isValidCursor(cursor int) bool {
+func (line *Line) isValidLocation(cursor int) bool {
 	return cursor <= line.Count()
 }
 
-func (line *Line) InsertString(s string, cursor *Cursor) error {
-	if !line.isValidCursor(cursor.GetCol()) {
+func (line *Line) InsertString(s string, cursor *Location) error {
+	if !line.isValidLocation(cursor.GetCol()) {
 		return fmt.Errorf("[LINE ERROR] invalid cursor position, failed to append string %s", s)
 	}
 
@@ -30,16 +30,16 @@ func (line *Line) InsertString(s string, cursor *Cursor) error {
 	return nil
 }
 
-func (line *Line) InsertChar(c rune, cursor *Cursor) error {
+func (line *Line) InsertChar(c rune, cursor *Location) error {
 	return line.InsertString(string(c), cursor)
 }
 
-func (line *Line) RemoveString(count int, cursor *Cursor) error {
+func (line *Line) RemoveString(count int, cursor *Location) error {
 	if count == 0 {
 		return nil
 	}
 
-	if !line.isValidCursor(cursor.GetCol()) {
+	if !line.isValidLocation(cursor.GetCol()) {
 		return fmt.Errorf("[LINE ERROR] invalid cursor position, failed to remove string")
 	}
 
@@ -53,7 +53,7 @@ func (line *Line) RemoveString(count int, cursor *Cursor) error {
 	return nil
 }
 
-func (line *Line) RemoveChar(cursor *Cursor) error {
+func (line *Line) RemoveChar(cursor *Location) error {
 	return line.RemoveString(1, cursor)
 }
 
@@ -65,4 +65,16 @@ func (line *Line) Split(index int) (Line, Line) {
 	first := NewLine(line.content[:index])
 	second := NewLine(line.content[index:])
 	return first, second
+}
+
+// get the end of the 'text' in the line 'line'
+func (line *Line) Search(startIndex int, text string) (index int, found bool) {
+	for i := startIndex; i < line.Count()-len(text)+1; i++ {
+		s := line.content[i : i+len(text)]
+		if s == text {
+			return i + len(text), true
+		}
+	}
+
+	return 0, false
 }

@@ -33,7 +33,7 @@ func (buffer *Buffer) Count() int {
 	return len(buffer.lines)
 }
 
-func (buffer *Buffer) InsertString(s string, cursor *Cursor) error {
+func (buffer *Buffer) InsertString(s string, cursor *Location) error {
 	if !buffer.isValidLine(cursor.GetLine()) {
 		return fmt.Errorf("[BUFFER ERROR] invalid cursor position, failed to append string")
 	}
@@ -41,7 +41,7 @@ func (buffer *Buffer) InsertString(s string, cursor *Cursor) error {
 	return buffer.lines[cursor.GetLine()].InsertString(s, cursor)
 }
 
-func (buffer *Buffer) InsertChar(c rune, cursor *Cursor) error {
+func (buffer *Buffer) InsertChar(c rune, cursor *Location) error {
 	return buffer.InsertString(string(c), cursor)
 }
 
@@ -67,7 +67,7 @@ func (buffer *Buffer) AppendLineContent(lineIndex, lineIndexToAppend int) {
 	buffer.lines[lineIndex].content += buffer.lines[lineIndexToAppend].content
 }
 
-func (buffer *Buffer) RemoveString(count int, cursor *Cursor) error {
+func (buffer *Buffer) RemoveString(count int, cursor *Location) error {
 	line, col := cursor.Get()
 	if line == 0 && col == 0 {
 		return nil
@@ -116,7 +116,7 @@ func (buffer *Buffer) RemoveString(count int, cursor *Cursor) error {
 	return buffer.RemoveString(count, cursor)
 }
 
-func (buffer *Buffer) RemoveChar(cursor *Cursor) error {
+func (buffer *Buffer) RemoveChar(cursor *Location) error {
 	if cursor.GetCol() < BUFFER_TAB_SIZE {
 		return buffer.RemoveString(1, cursor)
 	}
@@ -136,7 +136,7 @@ func (buffer *Buffer) RemoveChar(cursor *Cursor) error {
 	return buffer.RemoveString(1, cursor)
 }
 
-func (buffer *Buffer) InsertNewLine(cursor *Cursor) error {
+func (buffer *Buffer) InsertNewLine(cursor *Location) error {
 	if !buffer.isValidLine(cursor.GetLine()) {
 		return fmt.Errorf("[BUFFER ERROR] invalid cursor position, failed to insert a new line")
 	}
@@ -160,7 +160,7 @@ func (buffer *Buffer) InsertNewLine(cursor *Cursor) error {
 	return nil
 }
 
-func (buffer *Buffer) InsertTab(cursor *Cursor) error {
+func (buffer *Buffer) InsertTab(cursor *Location) error {
 	for i := 0; i < BUFFER_TAB_SIZE; i++ {
 		err := buffer.InsertChar(' ', cursor)
 		if err != nil {
@@ -169,4 +169,49 @@ func (buffer *Buffer) InsertTab(cursor *Cursor) error {
 	}
 
 	return nil
+}
+
+// get the end of the 'text' in the whole buffer
+func (buffer *Buffer) Search(currentLocation Location, text string) (Location, bool) {
+	// search in current row
+	col := 0
+	found := false
+
+	col, found = buffer.lines[currentLocation.GetLine()].Search(currentLocation.GetCol(), text)
+	if found {
+		return Location{
+			line: currentLocation.GetLine(),
+			col:  col,
+		}, true
+	}
+
+	for i := currentLocation.GetLine() + 1; i < buffer.Count(); i++ {
+		col, found = buffer.lines[i].Search(0, text)
+		if found {
+			return Location{
+				line: i,
+				col:  col,
+			}, true
+		}
+	}
+
+	for i := 0; i < currentLocation.GetLine(); i++ {
+		col, found := buffer.lines[i].Search(0, text)
+		if found {
+			return Location{
+				line: i,
+				col:  col,
+			}, true
+		}
+	}
+
+	col, found = buffer.lines[currentLocation.GetLine()].Search(0, text)
+	if !found {
+		return NewLocation(), false
+	}
+
+	return Location{
+		line: currentLocation.GetLine(),
+		col:  col,
+	}, true
 }

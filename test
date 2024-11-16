@@ -1,4 +1,6 @@
-func main() {
+intclear
+intclear
+ls
+clear
+leger
 
-    name := "Bouhadda Mohammed Djaoued";    
-}

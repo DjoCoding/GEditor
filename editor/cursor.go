@@ -1,38 +1,42 @@
 package editor
 
-type Cursor struct {
+type Location struct {
 	line int
 	col  int
 }
 
-func NewCursor() Cursor {
-	return Cursor{
+func NewLocation() Location {
+	return Location{
 		line: 0,
 		col:  0,
 	}
 }
 
-func (cursor *Cursor) SetLine(line int) {
+func (cursor *Location) SetLine(line int) {
 	cursor.line = line
 }
 
-func (cursor *Cursor) SetCol(col int) {
+func (cursor *Location) SetCol(col int) {
 	cursor.col = col
 }
 
-func (cursor *Cursor) GetLine() int {
+func (cursor *Location) GetLine() int {
 	return cursor.line
 }
 
-func (cursor *Cursor) GetCol() int {
+func (cursor *Location) GetCol() int {
 	return cursor.col
 }
 
-func (cursor *Cursor) Set(line int, col int) {
+func (cursor *Location) Set(line int, col int) {
 	cursor.SetLine(line)
 	cursor.SetCol(col)
 }
 
-func (cursor *Cursor) Get() (line int, col int) {
+func (cursor *Location) Get() (line int, col int) {
 	return cursor.GetLine(), cursor.GetCol()
+}
+
+func (cursor *Location) Cmp(cur Location) bool {
+	return cursor.GetLine() == cur.GetLine() && cursor.GetCol() == cur.GetCol()
 }

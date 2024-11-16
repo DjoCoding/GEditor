@@ -10,7 +10,10 @@ import (
 )
 
 const (
-	LINE_CELL_ROW = 28
+	PROMPT_SCREEN_LINE_BEGIN = 28
+	PROMPT_SCREEN_COL_BEGIN  = 0
+
+	LINE_CELL_ROW = 30
 	LINE_CELL_COL = 30
 
 	UPPER_CURSOR_BOUNDS  = 3
@@ -20,6 +23,10 @@ const (
 	DOWN
 	RIGHT
 	LEFT
+
+	RUNNING_MODE = iota
+	EXITING_MODE
+	SEARCHING_MODE
 )
 
 type EditorConfiguration struct {
@@ -29,11 +36,12 @@ type EditorConfiguration struct {
 type Editor struct {
 	screen          tcell.Screen
 	buffer          Buffer
-	realCursor      Cursor
-	relativeCursor  Cursor
-	renderingCursor Cursor
-	quit            bool
+	realCursor      Location
+	relativeCursor  Location
+	renderingCursor Location
 	config          EditorConfiguration
+	mode            int
+	text            string // this is used for the search and replace
 }
 
 func New(editorConfig EditorConfiguration) (*Editor, error) {
@@ -54,10 +62,10 @@ func New(editorConfig EditorConfiguration) (*Editor, error) {
 	return &Editor{
 		screen:          screen,
 		buffer:          NewBuffer(),
-		realCursor:      NewCursor(),
-		relativeCursor:  NewCursor(),
-		renderingCursor: NewCursor(),
-		quit:            false,
+		realCursor:      NewLocation(),
+		relativeCursor:  NewLocation(),
+		renderingCursor: NewLocation(),
+		mode:            RUNNING_MODE,
 		config:          editorConfig,
 	}, nil
 }
@@ -67,11 +75,11 @@ func (editor *Editor) Close() {
 }
 
 func (editor *Editor) ShouldNotQuit() bool {
-	return !editor.quit
+	return editor.mode != EXITING_MODE
 }
 
 func (editor *Editor) Quit() {
-	editor.quit = true
+	editor.mode = EXITING_MODE
 }
 
 func (editor *Editor) insertChar(c rune) error {
@@ -158,7 +166,7 @@ func (editor *Editor) PollEvent() tcell.Event {
 	return editor.screen.PollEvent()
 }
 
-func (editor *Editor) HandleEvent(ev tcell.Event) error {
+func (editor *Editor) handleNormalModeEvent(ev tcell.Event) error {
 	switch ev := ev.(type) {
 	case *tcell.EventKey:
 		switch {
@@ -181,11 +189,61 @@ func (editor *Editor) HandleEvent(ev tcell.Event) error {
 		case ev.Key() == tcell.KeyCtrlS:
 			err := editor.Save()
 			return err
+		case ev.Key() == tcell.KeyCtrlF:
+			editor.mode = SEARCHING_MODE
 		default:
 			return editor.insertChar(ev.Rune())
 		}
 	}
-	
+
+	return nil
+}
+
+func (editor *Editor) SearchAndUpdateCursor() {
+	newCursor, found := editor.Search(editor.text)
+	if !found {
+		return
+	}
+	editor.realCursor = newCursor
+}
+
+func (editor *Editor) handleSearchModeEvent(ev tcell.Event) error {
+	shouldMakeSearch := false
+
+	switch ev := ev.(type) {
+	case *tcell.EventKey:
+		switch {
+		case ev.Key() == tcell.KeyEscape:
+			editor.text = ""
+			editor.mode = RUNNING_MODE
+		case ev.Key() == tcell.KeyBackspace2:
+			if len(editor.text) != 0 {
+				editor.text = editor.text[:len(editor.text)-1]
+				shouldMakeSearch = true
+			}
+		case ev.Key() == tcell.KeyEnter:
+			shouldMakeSearch = true
+		default:
+			editor.text += string(ev.Rune())
+			shouldMakeSearch = true
+		}
+	}
+
+	if shouldMakeSearch {
+		editor.SearchAndUpdateCursor()
+	}
+
+	return nil
+}
+
+func (editor *Editor) HandleEvent(ev tcell.Event) error {
+	switch editor.mode {
+	case RUNNING_MODE:
+		return editor.handleNormalModeEvent(ev)
+	case SEARCHING_MODE:
+		return editor.handleSearchModeEvent(ev)
+	}
+
 	return nil
 }
 
@@ -235,20 +293,23 @@ func (editor *Editor) renderCursor() {
 	editor.screen.ShowCursor(editor.relativeCursor.GetCol(), editor.relativeCursor.GetLine())
 }
 
+func (editor *Editor) renderText(line, col int, text string) {
+	for i, c := range text {
+		editor.screen.SetContent(col+i, line, c, nil, tcell.StyleDefault)
+	}
+}
+
 func (editor *Editor) renderInfo() {
 	lineString := strconv.Itoa(editor.realCursor.GetLine())
 	colString := strconv.Itoa(editor.realCursor.GetCol())
 
-	for i, c := range lineString {
-		editor.screen.SetContent(LINE_CELL_COL+i, LINE_CELL_ROW, c, nil, tcell.StyleDefault)
+	editor.renderText(LINE_CELL_ROW, LINE_CELL_COL, lineString)
+	editor.renderText(LINE_CELL_ROW, LINE_CELL_COL+len(lineString), ":")
+	editor.renderText(LINE_CELL_ROW, LINE_CELL_COL+len(lineString)+1, colString)
+
+	if editor.mode == SEARCHING_MODE {
+		editor.renderText(PROMPT_SCREEN_LINE_BEGIN+1, PROMPT_SCREEN_COL_BEGIN, "text: "+editor.text)
 	}
-
-	editor.screen.SetContent(LINE_CELL_COL+len(lineString), LINE_CELL_ROW, ':', nil, tcell.StyleDefault)
-
-	for i, c := range colString {
-		editor.screen.SetContent(LINE_CELL_COL+len(lineString)+i+1, LINE_CELL_ROW, c, nil, tcell.StyleDefault)
-	}
-
 }
 
 func (editor *Editor) Render() {
@@ -339,4 +400,8 @@ func (editor *Editor) Save() error {
 func (editor *Editor) QuitAndSave() error {
 	editor.Quit()
 	return editor.Save()
+}
+
+func (editor *Editor) Search(text string) (location Location, found bool) {
+	return editor.buffer.Search(editor.realCursor, text)
 }
