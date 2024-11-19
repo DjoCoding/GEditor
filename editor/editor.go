@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"unicode"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -50,6 +51,7 @@ type Editor struct {
 	searchParams    EditorSearchModeParams
 }
 
+// constructor for the editor structure
 func New(editorConfig EditorConfiguration) (*Editor, error) {
 	screen, err := tcell.NewScreen()
 	if err != nil {
@@ -77,34 +79,42 @@ func New(editorConfig EditorConfiguration) (*Editor, error) {
 	}, nil
 }
 
+// close the editor (remove the editor screen)
 func (editor *Editor) Close() {
 	editor.screen.Fini()
 }
 
+// return if the editor should still be running or not
 func (editor *Editor) ShouldNotQuit() bool {
 	return editor.mode != EXITING_MODE
 }
 
+// set the editor to the quitting mode
 func (editor *Editor) Quit() {
 	editor.mode = EXITING_MODE
 }
 
+// insert char in the editor buffer
 func (editor *Editor) insertChar(c rune) error {
 	return editor.buffer.InsertChar(c, &editor.realCursor)
 }
 
+// remove a char from the editor buffer
 func (editor *Editor) removeChar() error {
 	return editor.buffer.RemoveChar(&editor.realCursor)
 }
 
+// insert the new line char '\n' into the editor buffer
 func (editor *Editor) insertNewLine() error {
 	return editor.buffer.InsertNewLine(&editor.realCursor)
 }
 
+// insert the tab char '\t' into the editor buffer
 func (editor *Editor) insertTab() error {
 	return editor.buffer.InsertTab(&editor.realCursor)
 }
 
+// move the (main) editor cursor up
 func (editor *Editor) moveCursorUp() {
 	realCursorLine := editor.realCursor.GetLine()
 
@@ -121,6 +131,7 @@ func (editor *Editor) moveCursorUp() {
 	}
 }
 
+// move the (main) editor cursor down
 func (editor *Editor) moveCursorDown() {
 	realCursorLine := editor.realCursor.GetLine()
 
@@ -137,6 +148,7 @@ func (editor *Editor) moveCursorDown() {
 	}
 }
 
+// move the (main) editor cursor left
 func (editor *Editor) moveCursorLeft() {
 	realCursorCol := editor.realCursor.GetCol()
 	if realCursorCol > 0 {
@@ -153,6 +165,7 @@ func (editor *Editor) moveCursorLeft() {
 	editor.realCursor.SetCol(editor.buffer.lines[editor.realCursor.GetLine()].Count())
 }
 
+// move the (main) editor cursor right
 func (editor *Editor) moveCursorRight() {
 	realCursorLine, realCursorCol := editor.realCursor.Get()
 
@@ -169,13 +182,168 @@ func (editor *Editor) moveCursorRight() {
 	editor.realCursor.SetCol(0)
 }
 
-func (editor *Editor) PollEvent() tcell.Event {
-	return editor.screen.PollEvent()
+// get the char at the location before the current cursor position
+func (editor *Editor) getCharBeforeCursor() (c rune, ok bool) {
+	line, col := editor.realCursor.Get()
+	if col == 0 && line == 0 {
+		return 0, false
+	}
+
+	for col == 0 {
+		return '\n', true
+	}
+
+	return rune(editor.buffer.lines[line].content[col-1]), true
 }
 
+// get the char at the location after the current cursor position
+func (editor *Editor) getCharAfterCursor() (c rune, ok bool) {
+	line, col := editor.realCursor.Get()
+	if col >= editor.buffer.lines[line].Count()-1 {
+		if line >= editor.buffer.Count()-1 {
+			return 0, false
+		}
+
+		return '\n', true
+	}
+
+	return rune(editor.buffer.lines[line].content[col+1]), true
+}
+
+// skip the token at the left position from the cursor
+func (editor *Editor) skipLeftToken() {
+	c, ok := editor.getCharBeforeCursor()
+	if !ok {
+		return
+	}
+
+	hasNewLine := false
+	if unicode.IsSpace(c) {
+		for unicode.IsSpace(c) {
+			if c == '\n' {
+				if hasNewLine {
+					return
+				}
+				hasNewLine = true
+			}
+
+			editor.moveCursorLeft()
+			c, ok = editor.getCharBeforeCursor()
+			if !ok {
+				return
+			}
+		}
+	}
+
+	if unicode.IsLetter(c) || c == '_' {
+		for unicode.IsLetter(c) || c == '_' {
+			editor.moveCursorLeft()
+			c, ok = editor.getCharBeforeCursor()
+			if !ok {
+				return
+			}
+		}
+
+		return
+	}
+
+	if unicode.IsNumber(c) {
+		for unicode.IsNumber(c) {
+			editor.moveCursorLeft()
+			c, ok = editor.getCharBeforeCursor()
+			if !ok {
+				return
+			}
+		}
+
+		return
+	}
+
+	editor.moveCursorLeft()
+}
+
+// skip the token at the right position from the cursor
+func (editor *Editor) skipRightToken() {
+	c, ok := editor.getCharAfterCursor()
+	if !ok {
+		return
+	}
+
+	hasNewLine := false
+	if unicode.IsSpace(c) {
+		for unicode.IsSpace(c) {
+			if c == '\n' {
+				if hasNewLine {
+					return
+				}
+				hasNewLine = true
+			}
+
+			editor.moveCursorRight()
+			c, ok = editor.getCharAfterCursor()
+			if !ok {
+				return
+			}
+		}
+	}
+
+	if unicode.IsLetter(c) || c == '_' {
+		for unicode.IsLetter(c) || c == '_' {
+			editor.moveCursorRight()
+			c, ok = editor.getCharAfterCursor()
+			if !ok {
+				return
+			}
+		}
+
+		return
+	}
+
+	if unicode.IsNumber(c) {
+		for unicode.IsNumber(c) {
+			editor.moveCursorRight()
+			c, ok = editor.getCharAfterCursor()
+			if !ok {
+				return
+			}
+		}
+
+		return
+	}
+
+	editor.moveCursorRight()
+}
+
+// handle the `Ctrl` + `Key` commands in the normal mode
+func (editor *Editor) handleCtrlCommandsInNormalMode(key tcell.Key) error {
+	switch key {
+	case tcell.KeyLeft:
+		editor.skipLeftToken()
+	case tcell.KeyRight:
+		editor.skipRightToken()
+		// extra right moving (vscode mode)
+		editor.moveCursorRight()
+	case tcell.KeyCtrlS:
+		err := editor.save()
+		return err
+	case tcell.KeyCtrlF:
+		editor.mode = SEARCHING_MODE
+	default:
+		break
+	}
+
+	return nil
+}
+
+// handle the normal mode commands
 func (editor *Editor) handleNormalModeEvent(ev tcell.Event) error {
 	switch ev := ev.(type) {
 	case *tcell.EventKey:
+		// handle the ctrl + `key` commands
+		if ev.Modifiers()&tcell.ModCtrl != 0 {
+			return editor.handleCtrlCommandsInNormalMode(ev.Key())
+		}
+
 		switch {
 		case ev.Key() == tcell.KeyEscape:
 			editor.quitAndSave()
@@ -193,19 +361,17 @@ func (editor *Editor) handleNormalModeEvent(ev tcell.Event) error {
 			editor.moveCursorLeft()
 		case ev.Key() == tcell.KeyRight:
 			editor.moveCursorRight()
-		case ev.Key() == tcell.KeyCtrlS:
-			err := editor.save()
-			return err
-		case ev.Key() == tcell.KeyCtrlF:
-			editor.mode = SEARCHING_MODE
-		default:
+		case ev.Key() == tcell.KeyRune:
 			return editor.insertChar(ev.Rune())
+		default:
+			break
 		}
 	}
 
 	return nil
 }
 
+// search for the text given in the search params (field in the editor) and set the cursor to its position
 func (editor *Editor) searchAndUpdateCursor() {
 	// reset the search pointer
 	editor.searchParams.current = 0
@@ -221,6 +387,7 @@ func (editor *Editor) searchAndUpdateCursor() {
 	editor.realCursor = NewLocation(row, col+len(editor.searchParams.text))
 }
 
+// get the next position of the cursor from the current matching word (search function)
 func (editor *Editor) updateSearchPointer() {
 	locationsLen := len(editor.searchParams.locations)
 	if locationsLen == 0 {
@@ -236,6 +403,43 @@ func (editor *Editor) updateSearchPointer() {
 	editor.realCursor = NewLocation(row, col+len(editor.searchParams.text))
 }
 
+// get back to the normal mode from the search mode
+func (editor *Editor) switchToNormalFromSearchMode() {
+	editor.searchParams.text = ""
+	editor.searchParams.locations = nil
+	editor.mode = NORMAL_MODE
+}
+
+// remove a char from the text in the search mode
+func (editor *Editor) removeCharFromSearchModeText() {
+	if len(editor.searchParams.text) == 0 {
+		return
+	}
+	editor.searchParams.text = editor.searchParams.text[:len(editor.searchParams.text)-1]
+}
+
+// lookup a location in all the locations of the matching positions (after the search)
+func (editor *Editor) lookupLocationInSearchLocations(loc Location) bool {
+	for _, location := range editor.searchParams.locations {
+		if location.Cmp(loc) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// insert a char into the current searched text
+func (editor *Editor) insertCharToSearchedText(c rune) {
+	editor.searchParams.text += string(c)
+}
+
+// reset the current search test
+func (editor *Editor) resetSearchedText() {
+	editor.searchParams.text = ""
+}
+
+// handle search mode commands
 func (editor *Editor) handleSearchModeEvent(ev tcell.Event) error {
 	shouldMakeSearch := false
 
@@ -243,17 +447,17 @@ func (editor *Editor) handleSearchModeEvent(ev tcell.Event) error {
 	case *tcell.EventKey:
 		switch {
 		case ev.Key() == tcell.KeyEscape:
-			editor.searchParams.text = ""
-			editor.mode = NORMAL_MODE
+			editor.switchToNormalFromSearchMode()
 		case ev.Key() == tcell.KeyBackspace2:
-			if len(editor.searchParams.text) != 0 {
-				editor.searchParams.text = editor.searchParams.text[:len(editor.searchParams.text)-1]
-				shouldMakeSearch = true
-			}
+			editor.removeCharFromSearchModeText()
+			shouldMakeSearch = true
 		case ev.Key() == tcell.KeyEnter:
 			editor.updateSearchPointer()
-		default:
-			editor.searchParams.text += string(ev.Rune())
+		case ev.Key() == tcell.KeyCtrlR:
+			editor.resetSearchedText()
+			shouldMakeSearch = true
+		case ev.Key() == tcell.KeyRune:
+			editor.insertCharToSearchedText(ev.Rune())
 			shouldMakeSearch = true
 		}
 	}
@@ -265,6 +469,12 @@ func (editor *Editor) handleSearchModeEvent(ev tcell.Event) error {
 	return nil
 }
 
+// get an event from the event loop
+func (editor *Editor) PollEvent() tcell.Event {
+	return editor.screen.PollEvent()
+}
+
+// handle the event
 func (editor *Editor) HandleEvent(ev tcell.Event) error {
 	switch editor.mode {
 	case NORMAL_MODE:
@@ -282,17 +492,6 @@ func (editor *Editor) renderLineInNormalMode(lineIndex int, row int) {
 	for i, c := range line.GetContent() {
 		editor.screen.SetContent(i, row, c, nil, tcell.StyleDefault)
 	}
-}
-
-// no sense function used to lookup a location in all locations (helper method)
-func (editor *Editor) lookupLocationInSearchLocations(loc Location) bool {
-	for _, location := range editor.searchParams.locations {
-		if location.Cmp(loc) {
-			return true
-		}
-	}
-
-	return false
 }
 
 func (editor *Editor) renderLineInSearchMode(lineIndex int, row int) {
@@ -339,7 +538,6 @@ func (editor *Editor) updateRelativeCursor() {
 	editor.relativeCursor.Set(editor.realCursor.GetLine()-editor.renderingCursor.GetLine(), editor.realCursor.GetCol()-editor.renderingCursor.GetCol())
 }
 
-// no sense function (helper method to get the number of lines to render)
 func (editor *Editor) getNumberLinesToRender() int {
 	_, h := editor.screen.Size()
 	h -= BOTTOM_CURSOR_BOUNDS
@@ -348,7 +546,6 @@ func (editor *Editor) getNumberLinesToRender() int {
 }
 
 // render the content of the editor buffer in the normal mode
-// sub function
 func (editor *Editor) renderContentInNormalMode() {
 	numberLinesToRender := editor.getNumberLinesToRender()
 	for i := 0; i < numberLinesToRender; i++ {
@@ -357,7 +554,6 @@ func (editor *Editor) renderContentInNormalMode() {
 }
 
 // render the content of the editor buffer in the search mode
-// sub function
 func (editor *Editor) renderContentInSearchMode() {
 	numberLinesToRender := editor.getNumberLinesToRender()
 	for i := 0; i < numberLinesToRender; i++ {
@@ -366,7 +562,6 @@ func (editor *Editor) renderContentInSearchMode() {
 }
 
 // render the content of the editor buffer
-// main function
 func (editor *Editor) renderContent() {
 	editor.updateRenderingCursor()
 
@@ -379,7 +574,6 @@ func (editor *Editor) renderContent() {
 }
 
 // render the cursor of the editor (real Cursor)
-// main function
 func (editor *Editor) renderCursor() {
 	editor.updateRelativeCursor()
 	editor.screen.ShowCursor(editor.relativeCursor.GetCol(), editor.relativeCursor.GetLine())
@@ -393,7 +587,6 @@ func (editor *Editor) renderText(line, col int, text string) {
 }
 
 // render information (mode, cursor)
-// sub function
 func (editor *Editor) renderInfo() {
 	lineString := strconv.Itoa(editor.realCursor.GetLine())
 	colString := strconv.Itoa(editor.realCursor.GetCol())
@@ -403,12 +596,11 @@ func (editor *Editor) renderInfo() {
 	editor.renderText(LINE_CELL_ROW, LINE_CELL_COL+len(lineString)+1, colString)
 
 	if editor.mode == SEARCHING_MODE {
-		editor.renderText(PROMPT_SCREEN_LINE_BEGIN+1, PROMPT_SCREEN_COL_BEGIN, "text: "+editor.searchParams.text)
+		editor.renderText(PROMPT_SCREEN_LINE_BEGIN+1, PROMPT_SCREEN_COL_BEGIN, "find text: "+editor.searchParams.text)
 	}
 }
 
 // render the content of the editor together with some information
-// main function
 func (editor *Editor) Render() {
 	editor.screen.Clear()
 	editor.renderContent()
@@ -486,6 +678,7 @@ func (editor *Editor) saveFromConfiguration() error {
 	return nil
 }
 
+// save into a hardcoded filepath
 func (editor *Editor) save() error {
 	if editor.config.Filepath != nil {
 		return editor.saveFromConfiguration()
@@ -500,6 +693,7 @@ func (editor *Editor) save() error {
 	return editor.saveContent(f)
 }
 
+// quit the editor and save into a hardcoded filepath
 func (editor *Editor) quitAndSave() error {
 	editor.Quit()
 	return editor.save()
