@@ -41,8 +41,47 @@ func (buffer *Buffer) InsertString(s string, cursor *Location) error {
 	return buffer.lines[cursor.GetLine()].InsertString(s, cursor)
 }
 
-func (buffer *Buffer) InsertChar(c rune, cursor *Location) error {
+func getComplementaryChar(c rune) (comc rune, hasOne bool) {
+	comc = 0
+
+	switch c {
+	case '{':
+		comc = '}'
+	case '(':
+		comc = ')'
+	case '[':
+		comc = ']'
+	case '"':
+		comc = '"'
+	case '\'':
+		comc = '\''
+	case '<':
+		comc = '>'
+	}
+
+	hasOne = comc != 0
+	return comc, hasOne
+}
+
+// insert a char into the editor buffer without matching chars completion
+func (buffer *Buffer) InsertCharNormally(c rune, cursor *Location) error {
 	return buffer.InsertString(string(c), cursor)
+}
+
+func (buffer *Buffer) InsertChar(c rune, cursor *Location) error {
+	comc, hasOne := getComplementaryChar(c)
+
+	if !hasOne {
+		return buffer.InsertString(string(c), cursor)
+	}
+
+	err := buffer.InsertString(string(c)+string(comc), cursor)
+	if err != nil {
+		return err
+	}
+
+	cursor.SetCol(cursor.GetCol() - 1)
+	return nil
 }
 
 func (buffer *Buffer) RemoveLine(lineIndex int) error {
@@ -116,8 +155,30 @@ func (buffer *Buffer) RemoveString(count int, cursor *Location) error {
 	return buffer.RemoveString(count, cursor)
 }
 
+func (buffer *Buffer) HasMatchingChars(cursor *Location) bool {
+	line := buffer.lines[cursor.GetLine()]
+
+	if line.Count()-cursor.GetCol() >= 1 && cursor.GetCol() > 0 {
+		charAt := line.content[cursor.GetCol()]
+		charToRemove := line.content[cursor.GetCol()-1]
+		comc, hasOne := getComplementaryChar(rune(charToRemove))
+		return hasOne && comc == rune(charAt)
+	}
+
+	return false
+}
+
+func (buffer *Buffer) RemoveMatchingChars(cursor *Location) error {
+	cursor.SetCol(cursor.GetCol() + 1)
+	return buffer.RemoveString(2, cursor)
+}
+
 func (buffer *Buffer) RemoveChar(cursor *Location) error {
 	if cursor.GetCol() < BUFFER_TAB_SIZE {
+		if buffer.HasMatchingChars(cursor) {
+			return buffer.RemoveMatchingChars(cursor)
+		}
+
 		return buffer.RemoveString(1, cursor)
 	}
 
@@ -131,6 +192,10 @@ func (buffer *Buffer) RemoveChar(cursor *Location) error {
 
 	if isTab {
 		return buffer.RemoveString(BUFFER_TAB_SIZE, cursor)
+	}
+
+	if buffer.HasMatchingChars(cursor) {
+		return buffer.RemoveMatchingChars(cursor)
 	}
 
 	return buffer.RemoveString(1, cursor)
@@ -183,4 +248,11 @@ func (buffer *Buffer) Search(currentLocation Location, text string) []Location {
 	}
 
 	return locations
+}
+
+func (buffer *Buffer) Replace(location Location, prgTextCount int, text string) {
+	if !buffer.isValidLine(location.GetLine()) {
+		return
+	}
+	buffer.lines[location.GetLine()].Replace(location.GetCol(), prgTextCount, text)
 }

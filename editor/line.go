@@ -80,3 +80,11 @@ func (line *Line) Search(startIndex int, text string) []int {
 
 	return indices
 }
+
+func (line *Line) Replace(col int, orgTextCount int, text string) {
+	if !line.isValidLocation(col) {
+		return
+	}
+
+	line.content = line.content[:col] + text + line.content[col+orgTextCount:]
+}

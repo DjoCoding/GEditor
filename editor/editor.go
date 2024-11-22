@@ -25,9 +25,13 @@ const (
 	RIGHT
 	LEFT
 
-	NORMAL_MODE = iota
-	EXITING_MODE
-	SEARCHING_MODE
+	INSERT_MODE = iota
+	EXIT_MODE
+	SEARCH_MODE
+	REPLACE_MODE
+
+	ON_WHICHTEXT = iota
+	ON_NEWTEXT
 )
 
 type EditorConfiguration struct {
@@ -35,7 +39,7 @@ type EditorConfiguration struct {
 }
 
 type EditorSearchModeParams struct {
-	text      string // this is used for the search and replace
+	whichText string // this is used for the search and replace
 	locations []Location
 	current   int // points to the current location on which the cursor is focused
 }
@@ -73,7 +77,7 @@ func New(editorConfig EditorConfiguration) (*Editor, error) {
 		realCursor:      Location{},
 		relativeCursor:  Location{},
 		renderingCursor: Location{},
-		mode:            NORMAL_MODE,
+		mode:            INSERT_MODE,
 		config:          editorConfig,
 		searchParams:    EditorSearchModeParams{},
 	}, nil
@@ -86,12 +90,12 @@ func (editor *Editor) Close() {
 
 // return if the editor should still be running or not
 func (editor *Editor) ShouldNotQuit() bool {
-	return editor.mode != EXITING_MODE
+	return editor.mode != EXIT_MODE
 }
 
 // set the editor to the quitting mode
 func (editor *Editor) Quit() {
-	editor.mode = EXITING_MODE
+	editor.mode = EXIT_MODE
 }
 
 // insert char in the editor buffer
@@ -315,19 +319,24 @@ func (editor *Editor) skipRightToken() {
 }
 
 // handle the `Ctrl` + `Key` commands in the normal mode
-func (editor *Editor) handleCtrlCommandsInNormalMode(key tcell.Key) error {
-	switch key {
+func (editor *Editor) handleCtrlCommandsInNormalMode(evKey tcell.EventKey) error {
+	switch evKey.Key() {
 	case tcell.KeyLeft:
 		editor.skipLeftToken()
 	case tcell.KeyRight:
 		editor.skipRightToken()
 		// extra right moving (vscode mode)
 		editor.moveCursorRight()
-	case tcell.KeyCtrlS:
-		err := editor.save()
-		return err
-	case tcell.KeyCtrlF:
-		editor.mode = SEARCHING_MODE
+	case tcell.KeyRune:
+		switch evKey.Rune() {
+		case 's':
+			err := editor.save()
+			return err
+		case 'f':
+			editor.mode = SEARCH_MODE
+		default:
+			break
+		}
 	default:
 		break
 	}
@@ -339,9 +348,9 @@ func (editor *Editor) handleCtrlCommandsInNormalMode(key tcell.Key) error {
 func (editor *Editor) handleNormalModeEvent(ev tcell.Event) error {
 	switch ev := ev.(type) {
 	case *tcell.EventKey:
-		// handle the ctrl + `key` commands
+		// handle the ctrl + `evKey.Key()` commands
 		if ev.Modifiers()&tcell.ModCtrl != 0 {
-			return editor.handleCtrlCommandsInNormalMode(ev.Key())
+			return editor.handleCtrlCommandsInNormalMode(*ev)
 		}
 
 		switch {
@@ -377,14 +386,14 @@ func (editor *Editor) searchAndUpdateCursor() {
 	editor.searchParams.current = 0
 
 	// update the search locations
-	editor.updateSearchLocations(editor.searchParams.text)
+	editor.updateSearchLocations(editor.searchParams.whichText)
 	if len(editor.searchParams.locations) == 0 {
 		return
 	}
 
 	// set the real cursor
 	row, col := editor.searchParams.locations[editor.searchParams.current].Get()
-	editor.realCursor = NewLocation(row, col+len(editor.searchParams.text))
+	editor.realCursor = NewLocation(row, col+len(editor.searchParams.whichText))
 }
 
 // get the next position of the cursor from the current matching word (search function)
@@ -400,22 +409,21 @@ func (editor *Editor) updateSearchPointer() {
 
 	// updating the real cursor
 	row, col := editor.searchParams.locations[editor.searchParams.current].Get()
-	editor.realCursor = NewLocation(row, col+len(editor.searchParams.text))
+	editor.realCursor = NewLocation(row, col+len(editor.searchParams.whichText))
 }
 
 // get back to the normal mode from the search mode
 func (editor *Editor) switchToNormalFromSearchMode() {
-	editor.searchParams.text = ""
-	editor.searchParams.locations = nil
-	editor.mode = NORMAL_MODE
+	editor.searchParams = EditorSearchModeParams{}
+	editor.mode = INSERT_MODE
 }
 
 // remove a char from the text in the search mode
 func (editor *Editor) removeCharFromSearchModeText() {
-	if len(editor.searchParams.text) == 0 {
+	if len(editor.searchParams.whichText) == 0 {
 		return
 	}
-	editor.searchParams.text = editor.searchParams.text[:len(editor.searchParams.text)-1]
+	editor.searchParams.whichText = editor.searchParams.whichText[:len(editor.searchParams.whichText)-1]
 }
 
 // lookup a location in all the locations of the matching positions (after the search)
@@ -431,12 +439,12 @@ func (editor *Editor) lookupLocationInSearchLocations(loc Location) bool {
 
 // insert a char into the current searched text
 func (editor *Editor) insertCharToSearchedText(c rune) {
-	editor.searchParams.text += string(c)
+	editor.searchParams.whichText += string(c)
 }
 
-// reset the current search test
-func (editor *Editor) resetSearchedText() {
-	editor.searchParams.text = ""
+// search a text in the editor buffer and set all the locations where found
+func (editor *Editor) updateSearchLocations(text string) {
+	editor.searchParams.locations = editor.buffer.Search(editor.realCursor, text)
 }
 
 // handle search mode commands
@@ -453,9 +461,6 @@ func (editor *Editor) handleSearchModeEvent(ev tcell.Event) error {
 			shouldMakeSearch = true
 		case ev.Key() == tcell.KeyEnter:
 			editor.updateSearchPointer()
-		case ev.Key() == tcell.KeyCtrlR:
-			editor.resetSearchedText()
-			shouldMakeSearch = true
 		case ev.Key() == tcell.KeyRune:
 			editor.insertCharToSearchedText(ev.Rune())
 			shouldMakeSearch = true
@@ -477,9 +482,9 @@ func (editor *Editor) PollEvent() tcell.Event {
 // handle the event
 func (editor *Editor) HandleEvent(ev tcell.Event) error {
 	switch editor.mode {
-	case NORMAL_MODE:
+	case INSERT_MODE:
 		return editor.handleNormalModeEvent(ev)
-	case SEARCHING_MODE:
+	case SEARCH_MODE:
 		return editor.handleSearchModeEvent(ev)
 	}
 
@@ -505,7 +510,7 @@ func (editor *Editor) renderLineInSearchMode(lineIndex int, row int) {
 		found := editor.lookupLocationInSearchLocations(currentLocation)
 
 		if found {
-			count = len(editor.searchParams.text)
+			count = len(editor.searchParams.whichText)
 		}
 
 		if count > 0 {
@@ -566,9 +571,9 @@ func (editor *Editor) renderContent() {
 	editor.updateRenderingCursor()
 
 	switch editor.mode {
-	case NORMAL_MODE:
+	case INSERT_MODE:
 		editor.renderContentInNormalMode()
-	case SEARCHING_MODE:
+	case SEARCH_MODE:
 		editor.renderContentInSearchMode()
 	}
 }
@@ -595,8 +600,8 @@ func (editor *Editor) renderInfo() {
 	editor.renderText(LINE_CELL_ROW, LINE_CELL_COL+len(lineString), ":")
 	editor.renderText(LINE_CELL_ROW, LINE_CELL_COL+len(lineString)+1, colString)
 
-	if editor.mode == SEARCHING_MODE {
-		editor.renderText(PROMPT_SCREEN_LINE_BEGIN+1, PROMPT_SCREEN_COL_BEGIN, "find text: "+editor.searchParams.text)
+	if editor.mode == SEARCH_MODE {
+		editor.renderText(PROMPT_SCREEN_LINE_BEGIN+1, PROMPT_SCREEN_COL_BEGIN, "find text: "+editor.searchParams.whichText)
 	}
 }
 
@@ -635,7 +640,7 @@ func (editor *Editor) loadFileFromConfiguration() error {
 		case '\t':
 			err = editor.insertTab()
 		default:
-			err = editor.insertChar(rune(c))
+			err = editor.loadCharFromFile(rune(c))
 		}
 
 		if err != nil {
@@ -644,6 +649,11 @@ func (editor *Editor) loadFileFromConfiguration() error {
 	}
 
 	return nil
+}
+
+// load a char from a file into the editor buffer
+func (editor *Editor) loadCharFromFile(c rune) error {
+	return editor.buffer.InsertCharNormally(c, &editor.realCursor)
 }
 
 // load file to the editor buffer
@@ -697,9 +707,4 @@ func (editor *Editor) save() error {
 func (editor *Editor) quitAndSave() error {
 	editor.Quit()
 	return editor.save()
-}
-
-// search a text in the editor buffer and set all the locations where found
-func (editor *Editor) updateSearchLocations(text string) {
-	editor.searchParams.locations = editor.buffer.Search(editor.realCursor, text)
 }
