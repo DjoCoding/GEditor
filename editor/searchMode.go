@@ -94,6 +94,11 @@ func (e *Editor) replaceOnCursor() {
 
 	e.buffer.findAndReplace(newText, oldText, &e.realCursor)
 	e.searchParams.hasReplaced = true
+
+	currentLocation := e.realCursor
+	e.searchAndSetCursor()
+
+	e.realCursor = currentLocation
 }
 
 // handle search mode commands
