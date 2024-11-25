@@ -1,2 +1,3 @@
 main: main.go editor/*.go 
-	go build .
+	go build -o bin/main .
+

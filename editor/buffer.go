@@ -250,9 +250,9 @@ func (buffer *Buffer) Search(currentLocation Location, text string) []Location {
 	return locations
 }
 
-func (buffer *Buffer) Replace(location Location, prgTextCount int, text string) {
+func (buffer *Buffer) findAndReplace(newText, prevText string, location *Location) {
 	if !buffer.isValidLine(location.GetLine()) {
 		return
 	}
-	buffer.lines[location.GetLine()].Replace(location.GetCol(), prgTextCount, text)
+	buffer.lines[location.GetLine()].Replace(location, prevText, newText)
 }

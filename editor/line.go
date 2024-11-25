@@ -81,10 +81,13 @@ func (line *Line) Search(startIndex int, text string) []int {
 	return indices
 }
 
-func (line *Line) Replace(col int, orgTextCount int, text string) {
+func (line *Line) Replace(loc *Location, prevText, newText string) {
+	col := loc.GetCol()
+
 	if !line.isValidLocation(col) {
 		return
 	}
 
-	line.content = line.content[:col] + text + line.content[col+orgTextCount:]
+	line.content = line.content[:col] + newText + line.content[col+len(prevText):]
+	loc.SetCol(col + len(newText))
 }
