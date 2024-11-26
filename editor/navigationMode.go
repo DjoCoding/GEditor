@@ -46,11 +46,6 @@ func (e *Editor) updateFileIndexCursorUp() {
 	e.navParams.currentFileIndex--
 }
 
-// remove it
-func writeToDjoFile(text string) {
-	os.WriteFile("./djofile", []byte(text), 0644)
-}
-
 func (e *Editor) handleEnterKeyInNavigationMode() error {
 	filepath := e.navParams.files[e.navParams.currentFileIndex].Name()
 	e.config.OpenedFile += "/" + filepath
