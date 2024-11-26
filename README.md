@@ -8,6 +8,7 @@ GEditor is a lightweight terminal-based text editor written in Go. It includes t
 - **Token Skipping**: Navigate quickly through tokens in the text for rapid editing.
 - **Cursor Navigation**: Move the cursor with precision to any location in the file.
 - **Scrolling Support**: Smoothly scroll through large files without losing context.
+- **Selection Mode**: Another mode where you can select text and do whatever you want with it
 
 ## Installation
 
@@ -21,5 +22,4 @@ To use this text editor, you need to have Go installed on your system. Follow th
 
 - **Directory Navigation**: Open and load text files from a directory 
 - **Text Highlighting**: Support text highlighting for some programming languages
-- **Selection Mode**: Another mode where you can select text and do whatever you want with it
 
