@@ -58,8 +58,8 @@ func (e *Editor) checkLocationInSelectionModeBounds(loc Location) bool {
 func (e *Editor) countDistanceBetweenSelectionModeBounds() int {
 	start, end := sortLocations(e.selParams.startLocation, e.selParams.endLocation)
 
-	sline, scol := start.Get()
-	eline, ecol := end.Get()
+	sline, scol := start.get()
+	eline, ecol := end.get()
 
 	if sline == eline {
 		return ecol - scol
@@ -68,10 +68,10 @@ func (e *Editor) countDistanceBetweenSelectionModeBounds() int {
 	count := 0
 
 	for i := sline + 1; i < eline-1; i++ {
-		count += e.buffer.lines[i].Count()
+		count += e.buffer.lines[i].count()
 	}
 
-	count += e.buffer.lines[sline].Count() - scol
+	count += e.buffer.lines[sline].count() - scol
 	count += ecol
 
 	return count
@@ -89,7 +89,7 @@ func (e *Editor) moveCursorRightInSelectionMode() {
 
 func (e *Editor) removeContentInSelectionMode() error {
 	_, end := sortLocations(e.selParams.startLocation, e.selParams.endLocation)
-	err := e.buffer.RemoveString(e.countDistanceBetweenSelectionModeBounds(), &end)
+	err := e.buffer.removeString(e.countDistanceBetweenSelectionModeBounds(), &end)
 	if err != nil {
 		return err
 	}

@@ -33,8 +33,8 @@ func (editor *Editor) searchAndSetCursor() {
 	}
 
 	// set the real cursor
-	row, col := editor.searchParams.locations[editor.searchParams.current].Get()
-	editor.realCursor = NewLocation(row, col+len(editor.input.buffers[INPUT_TEXT]))
+	row, col := editor.searchParams.locations[editor.searchParams.current].get()
+	editor.realCursor = newLocation(row, col+len(editor.input.buffers[INPUT_TEXT]))
 }
 
 // get the next position of the cursor from the current matching word (search function)
@@ -49,14 +49,14 @@ func (editor *Editor) updateSearchPointer() {
 	editor.searchParams.current %= locationsLen
 
 	// updating the real cursor
-	row, col := editor.searchParams.locations[editor.searchParams.current].Get()
-	editor.realCursor = NewLocation(row, col+len(editor.input.buffers[INPUT_TEXT]))
+	row, col := editor.searchParams.locations[editor.searchParams.current].get()
+	editor.realCursor = newLocation(row, col+len(editor.input.buffers[INPUT_TEXT]))
 }
 
 // lookup a location in all the locations of the matching positions (after the search)
 func (editor *Editor) lookupLocationInSearchLocations(loc Location) bool {
 	for _, location := range editor.searchParams.locations {
-		if location.Cmp(loc) {
+		if location.cmp(loc) {
 			return true
 		}
 	}
@@ -66,7 +66,7 @@ func (editor *Editor) lookupLocationInSearchLocations(loc Location) bool {
 
 // search a text in the editor buffer and set all the locations where found
 func (editor *Editor) updateSearchLocations(text string) {
-	editor.searchParams.locations = editor.buffer.Search(editor.realCursor, text)
+	editor.searchParams.locations = editor.buffer.search(text)
 }
 
 func (e *Editor) replaceOnCursor() {
@@ -77,7 +77,7 @@ func (e *Editor) replaceOnCursor() {
 
 	newText := e.input.buffers[NEW_TEXT]
 	oldText := e.input.buffers[INPUT_TEXT]
-	e.realCursor.SetCol(e.realCursor.GetCol() - len(oldText))
+	e.realCursor.setCol(e.realCursor.getCol() - len(oldText))
 
 	e.buffer.findAndReplace(newText, oldText, &e.realCursor)
 	e.searchParams.hasReplaced = true

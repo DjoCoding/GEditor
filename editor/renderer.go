@@ -10,7 +10,7 @@ import (
 func (editor *Editor) renderLineInNormalMode(lineIndex int, row int) {
 	line := editor.buffer.lines[lineIndex]
 
-	for i, c := range line.GetContent() {
+	for i, c := range line.getContent() {
 		editor.screen.SetContent(i, row, c, nil, tcell.StyleDefault)
 	}
 }
@@ -21,8 +21,8 @@ func (editor *Editor) renderLineInSearchMode(lineIndex int, row int) {
 
 	count := 0
 
-	for i, c := range line.GetContent() {
-		currentLocation := NewLocation(lineIndex, i)
+	for i, c := range line.getContent() {
+		currentLocation := newLocation(lineIndex, i)
 		found := editor.lookupLocationInSearchLocations(currentLocation)
 
 		if found {
@@ -43,8 +43,8 @@ func (editor *Editor) renderLineInSelectionMode(lineIndex int, row int) {
 	style := tcell.StyleDefault.Background(tcell.ColorBlue)
 	line := editor.buffer.lines[lineIndex]
 
-	for i, c := range line.GetContent() {
-		currentLocation := NewLocation(lineIndex, i)
+	for i, c := range line.getContent() {
+		currentLocation := newLocation(lineIndex, i)
 		if editor.checkLocationInSelectionModeBounds(currentLocation) {
 			editor.screen.SetContent(i, row, c, nil, style)
 			continue
@@ -55,37 +55,37 @@ func (editor *Editor) renderLineInSelectionMode(lineIndex int, row int) {
 }
 
 func (editor *Editor) updateRenderingCursor() {
-	for editor.realCursor.GetLine() < editor.renderingCursor.GetLine()+UPPER_CURSOR_BOUNDS {
-		editor.renderingCursor.SetLine(editor.renderingCursor.GetLine() - 1)
-		if editor.renderingCursor.GetLine() < 0 {
-			editor.renderingCursor.SetLine(0)
+	for editor.realCursor.getLine() < editor.renderingCursor.getLine()+UPPER_CURSOR_BOUNDS {
+		editor.renderingCursor.setLine(editor.renderingCursor.getLine() - 1)
+		if editor.renderingCursor.getLine() < 0 {
+			editor.renderingCursor.setLine(0)
 			return
 		}
 	}
 
 	_, h := editor.screen.Size()
 	h -= BOTTOM_CURSOR_BOUNDS
-	for editor.realCursor.GetLine() > editor.renderingCursor.GetLine()+h-BOTTOM_CURSOR_BOUNDS {
-		editor.renderingCursor.SetLine(editor.renderingCursor.GetLine() + 1)
+	for editor.realCursor.getLine() > editor.renderingCursor.getLine()+h-BOTTOM_CURSOR_BOUNDS {
+		editor.renderingCursor.setLine(editor.renderingCursor.getLine() + 1)
 	}
 }
 
 func (editor *Editor) updateRelativeCursor() {
-	editor.relativeCursor.Set(editor.realCursor.GetLine()-editor.renderingCursor.GetLine(), editor.realCursor.GetCol()-editor.renderingCursor.GetCol())
+	editor.relativeCursor.set(editor.realCursor.getLine()-editor.renderingCursor.getLine(), editor.realCursor.getCol()-editor.renderingCursor.getCol())
 }
 
 func (editor *Editor) getNumberLinesToRender() int {
 	_, h := editor.screen.Size()
 	h -= BOTTOM_CURSOR_BOUNDS
 
-	return int(math.Min(float64(h), float64(editor.buffer.Count()-editor.renderingCursor.GetLine())))
+	return int(math.Min(float64(h), float64(editor.buffer.count()-editor.renderingCursor.getLine())))
 }
 
 // render the content of the editor buffer in the normal mode
 func (editor *Editor) renderContentInNormalMode() {
 	numberLinesToRender := editor.getNumberLinesToRender()
 	for i := 0; i < numberLinesToRender; i++ {
-		editor.renderLineInNormalMode(editor.renderingCursor.GetLine()+i, i)
+		editor.renderLineInNormalMode(editor.renderingCursor.getLine()+i, i)
 	}
 }
 
@@ -93,14 +93,14 @@ func (editor *Editor) renderContentInNormalMode() {
 func (editor *Editor) renderContentInSearchMode() {
 	numberLinesToRender := editor.getNumberLinesToRender()
 	for i := 0; i < numberLinesToRender; i++ {
-		editor.renderLineInSearchMode(editor.renderingCursor.GetLine()+i, i)
+		editor.renderLineInSearchMode(editor.renderingCursor.getLine()+i, i)
 	}
 }
 
 func (editor *Editor) renderContentInSelectionMode() {
 	numberLinesToRender := editor.getNumberLinesToRender()
 	for i := 0; i < numberLinesToRender; i++ {
-		editor.renderLineInSelectionMode(editor.renderingCursor.GetLine()+i, i)
+		editor.renderLineInSelectionMode(editor.renderingCursor.getLine()+i, i)
 	}
 }
 
@@ -121,7 +121,7 @@ func (editor *Editor) renderContent() {
 // render the cursor of the editor (real Cursor)
 func (editor *Editor) renderCursor() {
 	editor.updateRelativeCursor()
-	editor.screen.ShowCursor(editor.relativeCursor.GetCol(), editor.relativeCursor.GetLine())
+	editor.screen.ShowCursor(editor.relativeCursor.getCol(), editor.relativeCursor.getLine())
 }
 
 // render any text to the editor screen (helper function)
@@ -133,8 +133,8 @@ func (editor *Editor) renderText(line, col int, text string) {
 
 // render information (mode, cursor)
 func (editor *Editor) renderInfo() {
-	lineString := strconv.Itoa(editor.realCursor.GetLine())
-	colString := strconv.Itoa(editor.realCursor.GetCol())
+	lineString := strconv.Itoa(editor.realCursor.getLine())
+	colString := strconv.Itoa(editor.realCursor.getCol())
 
 	editor.renderText(LINE_CELL_ROW, LINE_CELL_COL, lineString)
 	editor.renderText(LINE_CELL_ROW, LINE_CELL_COL+len(lineString), ":")

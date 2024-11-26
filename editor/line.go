@@ -6,72 +6,64 @@ type Line struct {
 	content string
 }
 
-func NewLine(content string) Line {
+func newLine(content string) Line {
 	return Line{
 		content: content,
 	}
 }
 
-func (line *Line) GetContent() string {
+func (line *Line) getContent() string {
 	return line.content
 }
 
 func (line *Line) isValidLocation(cursor int) bool {
-	return cursor <= line.Count()
+	return cursor <= line.count()
 }
 
-func (line *Line) InsertString(s string, cursor *Location) error {
-	if !line.isValidLocation(cursor.GetCol()) {
+func (line *Line) insertString(s string, cursor *Location) error {
+	if !line.isValidLocation(cursor.getCol()) {
 		return fmt.Errorf("[LINE ERROR] invalid cursor position, failed to append string %s", s)
 	}
 
-	line.content = line.content[0:cursor.GetCol()] + s + line.content[cursor.GetCol():]
-	cursor.SetCol(cursor.GetCol() + len(s))
+	line.content = line.content[0:cursor.getCol()] + s + line.content[cursor.getCol():]
+	cursor.setCol(cursor.getCol() + len(s))
 	return nil
 }
 
-func (line *Line) InsertChar(c rune, cursor *Location) error {
-	return line.InsertString(string(c), cursor)
-}
-
-func (line *Line) RemoveString(count int, cursor *Location) error {
+func (line *Line) removeString(count int, cursor *Location) error {
 	if count == 0 {
 		return nil
 	}
 
-	if !line.isValidLocation(cursor.GetCol()) {
+	if !line.isValidLocation(cursor.getCol()) {
 		return fmt.Errorf("[LINE ERROR] invalid cursor position, failed to remove string")
 	}
 
 	// This will be handled by the editor itself
-	if cursor.GetCol()-count < 0 {
+	if cursor.getCol()-count < 0 {
 		return fmt.Errorf("[LINE ERROR] invalid string length, failed to remove string")
 	}
 
-	line.content = line.content[0:cursor.GetCol()-count] + line.content[cursor.GetCol():]
-	cursor.SetCol(cursor.GetCol() - count)
+	line.content = line.content[0:cursor.getCol()-count] + line.content[cursor.getCol():]
+	cursor.setCol(cursor.getCol() - count)
 	return nil
 }
 
-func (line *Line) RemoveChar(cursor *Location) error {
-	return line.RemoveString(1, cursor)
-}
-
-func (line *Line) Count() int {
+func (line *Line) count() int {
 	return len(line.content)
 }
 
 func (line *Line) Split(index int) (Line, Line) {
-	first := NewLine(line.content[:index])
-	second := NewLine(line.content[index:])
+	first := newLine(line.content[:index])
+	second := newLine(line.content[index:])
 	return first, second
 }
 
 // get the start of the 'text' in the line 'line'
-func (line *Line) Search(startIndex int, text string) []int {
+func (line *Line) search(startIndex int, text string) []int {
 	var indices []int
 
-	for i := startIndex; i < line.Count()-len(text)+1; i++ {
+	for i := startIndex; i < line.count()-len(text)+1; i++ {
 		s := line.content[i : i+len(text)]
 		if s == text {
 			indices = append(indices, i)
@@ -81,13 +73,13 @@ func (line *Line) Search(startIndex int, text string) []int {
 	return indices
 }
 
-func (line *Line) Replace(loc *Location, prevText, newText string) {
-	col := loc.GetCol()
+func (line *Line) replace(loc *Location, prevText, newText string) {
+	col := loc.getCol()
 
 	if !line.isValidLocation(col) {
 		return
 	}
 
 	line.content = line.content[:col] + newText + line.content[col+len(prevText):]
-	loc.SetCol(col + len(newText))
+	loc.setCol(col + len(newText))
 }

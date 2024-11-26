@@ -8,95 +8,95 @@ import (
 
 // insert char in the editor buffer
 func (editor *Editor) insertChar(c rune) error {
-	return editor.buffer.InsertChar(c, &editor.realCursor)
+	return editor.buffer.insertChar(c, &editor.realCursor)
 }
 
 // remove a char from the editor buffer
 func (editor *Editor) removeChar() error {
-	return editor.buffer.RemoveChar(&editor.realCursor)
+	return editor.buffer.removeChar(&editor.realCursor)
 }
 
 // insert the new line char '\n' into the editor buffer
 func (editor *Editor) insertNewLine() error {
-	return editor.buffer.InsertNewLine(&editor.realCursor)
+	return editor.buffer.insertNewLine(&editor.realCursor)
 }
 
 // insert the tab char '\t' into the editor buffer
 func (editor *Editor) insertTab() error {
-	return editor.buffer.InsertTab(&editor.realCursor)
+	return editor.buffer.insertTab(&editor.realCursor)
 }
 
 // move the (main) editor cursor up
 func (editor *Editor) moveCursorUp() {
-	realCursorLine := editor.realCursor.GetLine()
+	realCursorLine := editor.realCursor.getLine()
 
 	if realCursorLine == 0 {
-		editor.realCursor.SetCol(0)
+		editor.realCursor.setCol(0)
 		return
 	}
 
-	editor.realCursor.SetLine(realCursorLine - 1)
+	editor.realCursor.setLine(realCursorLine - 1)
 
-	prevLineCount := editor.buffer.lines[realCursorLine-1].Count()
-	if prevLineCount < editor.realCursor.GetCol() {
-		editor.realCursor.SetCol(prevLineCount)
+	prevLineCount := editor.buffer.lines[realCursorLine-1].count()
+	if prevLineCount < editor.realCursor.getCol() {
+		editor.realCursor.setCol(prevLineCount)
 	}
 }
 
 // move the (main) editor cursor down
 func (editor *Editor) moveCursorDown() {
-	realCursorLine := editor.realCursor.GetLine()
+	realCursorLine := editor.realCursor.getLine()
 
-	if realCursorLine == editor.buffer.Count()-1 {
-		editor.realCursor.SetCol(editor.buffer.LastLineCount())
+	if realCursorLine == editor.buffer.count()-1 {
+		editor.realCursor.setCol(editor.buffer.lastLineCount())
 		return
 	}
 
-	editor.realCursor.SetLine(realCursorLine + 1)
+	editor.realCursor.setLine(realCursorLine + 1)
 
-	nextLineCount := editor.buffer.lines[realCursorLine+1].Count()
-	if nextLineCount < editor.realCursor.GetCol() {
-		editor.realCursor.SetCol(nextLineCount)
+	nextLineCount := editor.buffer.lines[realCursorLine+1].count()
+	if nextLineCount < editor.realCursor.getCol() {
+		editor.realCursor.setCol(nextLineCount)
 	}
 }
 
 // move the (main) editor cursor left
 func (editor *Editor) moveCursorLeft() {
-	realCursorCol := editor.realCursor.GetCol()
+	realCursorCol := editor.realCursor.getCol()
 	if realCursorCol > 0 {
-		editor.realCursor.SetCol(realCursorCol - 1)
+		editor.realCursor.setCol(realCursorCol - 1)
 		return
 	}
 
-	realCursorLine := editor.realCursor.GetLine()
+	realCursorLine := editor.realCursor.getLine()
 	if realCursorLine == 0 {
 		return
 	}
 
-	editor.realCursor.SetLine(realCursorLine - 1)
-	editor.realCursor.SetCol(editor.buffer.lines[editor.realCursor.GetLine()].Count())
+	editor.realCursor.setLine(realCursorLine - 1)
+	editor.realCursor.setCol(editor.buffer.lines[editor.realCursor.getLine()].count())
 }
 
 // move the (main) editor cursor right
 func (editor *Editor) moveCursorRight() {
-	realCursorLine, realCursorCol := editor.realCursor.Get()
+	realCursorLine, realCursorCol := editor.realCursor.get()
 
-	if realCursorCol < editor.buffer.lines[realCursorLine].Count() {
-		editor.realCursor.SetCol(realCursorCol + 1)
+	if realCursorCol < editor.buffer.lines[realCursorLine].count() {
+		editor.realCursor.setCol(realCursorCol + 1)
 		return
 	}
 
-	if realCursorLine >= editor.buffer.Count()-1 {
+	if realCursorLine >= editor.buffer.count()-1 {
 		return
 	}
 
-	editor.realCursor.SetLine(realCursorLine + 1)
-	editor.realCursor.SetCol(0)
+	editor.realCursor.setLine(realCursorLine + 1)
+	editor.realCursor.setCol(0)
 }
 
 // get the char at the location before the current cursor position
 func (editor *Editor) getCharBeforeCursor() (c rune, ok bool) {
-	line, col := editor.realCursor.Get()
+	line, col := editor.realCursor.get()
 	if col == 0 && line == 0 {
 		return 0, false
 	}
@@ -110,9 +110,9 @@ func (editor *Editor) getCharBeforeCursor() (c rune, ok bool) {
 
 // get the char at the location after the current cursor position
 func (editor *Editor) getCharAfterCursor() (c rune, ok bool) {
-	line, col := editor.realCursor.Get()
-	if col >= editor.buffer.lines[line].Count()-1 {
-		if line >= editor.buffer.Count()-1 {
+	line, col := editor.realCursor.get()
+	if col >= editor.buffer.lines[line].count()-1 {
+		if line >= editor.buffer.count()-1 {
 			return 0, false
 		}
 

@@ -92,7 +92,7 @@ func New(editorConfig EditorConfiguration) (*Editor, error) {
 
 	return &Editor{
 		screen:          screen,
-		buffer:          NewBuffer(),
+		buffer:          newBuffer(),
 		realCursor:      Location{},
 		relativeCursor:  Location{},
 		renderingCursor: Location{},

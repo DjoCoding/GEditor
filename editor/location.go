@@ -5,38 +5,38 @@ type Location struct {
 	col  int
 }
 
-func NewLocation(line, col int) Location {
+func newLocation(line, col int) Location {
 	return Location{
 		line: line,
 		col:  col,
 	}
 }
 
-func (cursor *Location) SetLine(line int) {
+func (cursor *Location) setLine(line int) {
 	cursor.line = line
 }
 
-func (cursor *Location) SetCol(col int) {
+func (cursor *Location) setCol(col int) {
 	cursor.col = col
 }
 
-func (cursor *Location) GetLine() int {
+func (cursor *Location) getLine() int {
 	return cursor.line
 }
 
-func (cursor *Location) GetCol() int {
+func (cursor *Location) getCol() int {
 	return cursor.col
 }
 
-func (cursor *Location) Set(line int, col int) {
-	cursor.SetLine(line)
-	cursor.SetCol(col)
+func (cursor *Location) set(line int, col int) {
+	cursor.setLine(line)
+	cursor.setCol(col)
 }
 
-func (cursor *Location) Get() (line int, col int) {
-	return cursor.GetLine(), cursor.GetCol()
+func (cursor *Location) get() (line int, col int) {
+	return cursor.getLine(), cursor.getCol()
 }
 
-func (cursor *Location) Cmp(cur Location) bool {
-	return cursor.GetLine() == cur.GetLine() && cursor.GetCol() == cur.GetCol()
+func (cursor *Location) cmp(cur Location) bool {
+	return cursor.getLine() == cur.getLine() && cursor.getCol() == cur.getCol()
 }

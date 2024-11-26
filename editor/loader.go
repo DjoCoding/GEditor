@@ -44,7 +44,7 @@ func (editor *Editor) loadFileFromConfiguration() error {
 
 // load a char from a file into the editor buffer
 func (editor *Editor) loadCharFromFile(c rune) error {
-	return editor.buffer.InsertCharNormally(c, &editor.realCursor)
+	return editor.buffer.insertCharNormally(c, &editor.realCursor)
 }
 
 // load file to the editor buffer
