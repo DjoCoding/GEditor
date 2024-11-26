@@ -11,7 +11,7 @@ func (editor *Editor) PollEvent() tcell.Event {
 func (editor *Editor) HandleEvent(ev tcell.Event) error {
 	switch editor.mode {
 	case INSERT_MODE:
-		return editor.handleNormalModeEvent(ev)
+		return editor.handleInsertModeEvent(ev)
 	case SEARCH_MODE:
 		return editor.handleSearchModeEvent(ev)
 	case SELECTION_MODE:

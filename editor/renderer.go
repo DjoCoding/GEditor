@@ -26,7 +26,7 @@ func (editor *Editor) renderLineInSearchMode(lineIndex int, row int) {
 		found := editor.lookupLocationInSearchLocations(currentLocation)
 
 		if found {
-			count = len(editor.searchParams.buffers[ON_WHICHTEXT])
+			count = len(editor.input.buffers[INPUT_TEXT])
 		}
 
 		if count > 0 {
@@ -140,13 +140,9 @@ func (editor *Editor) renderInfo() {
 	editor.renderText(LINE_CELL_ROW, LINE_CELL_COL+len(lineString), ":")
 	editor.renderText(LINE_CELL_ROW, LINE_CELL_COL+len(lineString)+1, colString)
 
-	if editor.mode == SEARCH_MODE {
-		bufferInputRequestingString := "find"
-		if editor.searchParams.currentBuffer == ON_NEWTEXT {
-			bufferInputRequestingString = "replace"
-		}
-
-		editor.renderText(PROMPT_SCREEN_LINE_BEGIN+1, PROMPT_SCREEN_COL_BEGIN, bufferInputRequestingString+" text: "+editor.searchParams.buffers[editor.searchParams.currentBuffer])
+	if editor.inputBufferIsEnabled() {
+		textToRender := editor.input.req + editor.input.buffers[editor.getInputCurrentBuffer()]
+		editor.renderText(PROMPT_SCREEN_LINE_BEGIN+1, PROMPT_SCREEN_COL_BEGIN, textToRender)
 	}
 }
 

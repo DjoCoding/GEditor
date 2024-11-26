@@ -7,7 +7,7 @@ import (
 
 // load a file using the EditorConfiguration fields (passed as args)
 func (editor *Editor) loadFileFromConfiguration() error {
-	fileInfo, err := os.Stat(*editor.config.Filepath)
+	fileInfo, err := os.Stat(editor.config.Filepath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -19,7 +19,7 @@ func (editor *Editor) loadFileFromConfiguration() error {
 		return fmt.Errorf("can not open directories in this text editor")
 	}
 
-	fileContent, err := os.ReadFile(*editor.config.Filepath)
+	fileContent, err := os.ReadFile(editor.config.Filepath)
 	if err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func (editor *Editor) loadCharFromFile(c rune) error {
 // load file to the editor buffer
 // main function
 func (editor *Editor) Load() error {
-	if editor.config.Filepath == nil {
+	if editor.config.Filepath == "" {
 		return nil
 	}
 

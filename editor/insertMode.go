@@ -226,8 +226,19 @@ func (editor *Editor) skipRightToken() {
 	editor.moveCursorRight()
 }
 
+func (editor *Editor) handleFileSavingInInsertMode() error {
+	if editor.config.Filepath != "" {
+		return editor.save()
+	}
+
+	editor.enableInputBuffer()
+	editor.setInputCurrentBuffer(INPUT_TEXT)
+	editor.setInputBufferInputRequestString("filepath: ")
+	return nil
+}
+
 // handle the `Ctrl` + `Key` commands in the normal mode
-func (editor *Editor) handleCtrlCommandsInNormalMode(evKey tcell.EventKey) error {
+func (editor *Editor) handleCtrlCommandsInInsertMode(evKey tcell.EventKey) error {
 	switch evKey.Key() {
 	case tcell.KeyLeft:
 		editor.skipLeftToken()
@@ -236,8 +247,7 @@ func (editor *Editor) handleCtrlCommandsInNormalMode(evKey tcell.EventKey) error
 		// extra right moving (vscode mode)
 		editor.moveCursorRight()
 	case tcell.KeyCtrlS:
-		err := editor.save()
-		return err
+		return editor.handleFileSavingInInsertMode()
 	case tcell.KeyCtrlF:
 		editor.setSearchMode()
 		editor.setSearchSubMode(SEARCH)
@@ -251,29 +261,49 @@ func (editor *Editor) handleCtrlCommandsInNormalMode(evKey tcell.EventKey) error
 	return nil
 }
 
+func (editor *Editor) handleEnterKeyInInsertMode() error {
+	if editor.inputBufferIsEnabled() {
+		if editor.input.buffers[editor.getInputCurrentBuffer()] == "" {
+			editor.disableInputBuffer()
+			return nil
+		}
+
+		editor.config.Filepath = editor.input.buffers[editor.getInputCurrentBuffer()]
+		err := editor.save()
+		if err != nil {
+			return err
+		}
+
+		editor.resetInput()
+		return nil
+	}
+
+	return editor.insertNewLine()
+}
+
 // handle the normal mode commands
-func (editor *Editor) handleNormalModeEvent(ev tcell.Event) error {
+func (editor *Editor) handleInsertModeEvent(ev tcell.Event) error {
 	switch ev := ev.(type) {
 	case *tcell.EventKey:
 		if ev.Modifiers()&tcell.ModShift != 0 {
 			editor.setSelectionMode()
 			return editor.HandleEvent(ev)
 		}
-		
+
 		// handle the ctrl + `evKey.Key()` commands
 		if ev.Modifiers()&tcell.ModCtrl != 0 {
-			return editor.handleCtrlCommandsInNormalMode(*ev)
+			return editor.handleCtrlCommandsInInsertMode(*ev)
 		}
 
 		switch {
 		case ev.Key() == tcell.KeyEscape:
-			editor.quitAndSave()
+			return editor.quitAndSave()
 		case ev.Key() == tcell.KeyBackspace2:
-			editor.removeChar()
+			return editor.removeChar()
 		case ev.Key() == tcell.KeyTab:
-			editor.insertTab()
+			return editor.insertTab()
 		case ev.Key() == tcell.KeyEnter:
-			editor.insertNewLine()
+			return editor.handleEnterKeyInInsertMode()
 		case ev.Key() == tcell.KeyUp:
 			editor.moveCursorUp()
 		case ev.Key() == tcell.KeyDown:
@@ -283,6 +313,10 @@ func (editor *Editor) handleNormalModeEvent(ev tcell.Event) error {
 		case ev.Key() == tcell.KeyRight:
 			editor.moveCursorRight()
 		case ev.Key() == tcell.KeyRune:
+			if editor.inputBufferIsEnabled() {
+				editor.insertCharToInputBuffer(ev.Rune())
+				return nil
+			}
 			return editor.insertChar(ev.Rune())
 		default:
 			break

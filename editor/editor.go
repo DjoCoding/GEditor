@@ -28,9 +28,9 @@ const (
 )
 
 const (
-	ON_WHICHTEXT = iota
-	ON_NEWTEXT
-	SEARCH_MODE_BUFFER_COUNT
+	INPUT_TEXT = iota
+	NEW_TEXT
+	EDITOR_BUFFER_COUNT
 )
 
 const (
@@ -39,7 +39,7 @@ const (
 )
 
 type EditorConfiguration struct {
-	Filepath *string
+	Filepath string
 }
 
 type EditorSelectionModeParams struct {
@@ -48,12 +48,17 @@ type EditorSelectionModeParams struct {
 }
 
 type EditorSearchModeParams struct {
-	buffers       [SEARCH_MODE_BUFFER_COUNT]string
-	locations     []Location
-	current       int // points to the current location on which the cursor is focused
-	whichMode     int
-	currentBuffer int
-	hasReplaced   bool
+	locations   []Location
+	current     int // points to the current location on which the cursor is focused
+	whichMode   int
+	hasReplaced bool
+}
+
+type EditorInternalInput struct {
+	buffers [EDITOR_BUFFER_COUNT]string
+	enabled bool
+	current int
+	req     string
 }
 
 type Editor struct {
@@ -66,6 +71,7 @@ type Editor struct {
 	mode            int
 	searchParams    EditorSearchModeParams
 	selParams       EditorSelectionModeParams
+	input           EditorInternalInput
 }
 
 // constructor for the editor structure
@@ -94,6 +100,7 @@ func New(editorConfig EditorConfiguration) (*Editor, error) {
 		config:          editorConfig,
 		searchParams:    EditorSearchModeParams{},
 		selParams:       EditorSelectionModeParams{},
+		input:           EditorInternalInput{},
 	}, nil
 }
 

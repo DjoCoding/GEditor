@@ -14,7 +14,7 @@ func main() {
 		arg := os.Args[i]
 		switch arg {
 		default:
-			config.Filepath = &arg
+			config.Filepath = arg
 		}
 	}
 

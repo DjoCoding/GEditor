@@ -5,6 +5,9 @@ import "github.com/gdamore/tcell/v2"
 func (editor *Editor) setSearchMode() {
 	editor.searchParams = EditorSearchModeParams{}
 	editor.mode = SEARCH_MODE
+	editor.enableInputBuffer()
+	editor.setInputCurrentBuffer(INPUT_TEXT)
+	editor.setInputBufferInputRequestString("find text: ")
 }
 
 func (editor *Editor) setSearchSubMode(whichMode int) {
@@ -14,11 +17,8 @@ func (editor *Editor) setSearchSubMode(whichMode int) {
 // get back to the normal mode from the search mode
 func (editor *Editor) switchToNormalFromSearchMode() {
 	editor.searchParams = EditorSearchModeParams{}
+	editor.input = EditorInternalInput{}
 	editor.mode = INSERT_MODE
-}
-
-func (editor *Editor) setSearchModeCurrentBuffer(whichBuffer int) {
-	editor.searchParams.currentBuffer = whichBuffer
 }
 
 // search for the text given in the search params (field in the editor) and set the cursor to its position
@@ -27,14 +27,14 @@ func (editor *Editor) searchAndSetCursor() {
 	editor.searchParams.current = 0
 
 	// update the search locations
-	editor.updateSearchLocations(editor.searchParams.buffers[ON_WHICHTEXT])
+	editor.updateSearchLocations(editor.input.buffers[INPUT_TEXT])
 	if len(editor.searchParams.locations) == 0 {
 		return
 	}
 
 	// set the real cursor
 	row, col := editor.searchParams.locations[editor.searchParams.current].Get()
-	editor.realCursor = NewLocation(row, col+len(editor.searchParams.buffers[ON_WHICHTEXT]))
+	editor.realCursor = NewLocation(row, col+len(editor.input.buffers[INPUT_TEXT]))
 }
 
 // get the next position of the cursor from the current matching word (search function)
@@ -50,15 +50,7 @@ func (editor *Editor) updateSearchPointer() {
 
 	// updating the real cursor
 	row, col := editor.searchParams.locations[editor.searchParams.current].Get()
-	editor.realCursor = NewLocation(row, col+len(editor.searchParams.buffers[ON_WHICHTEXT]))
-}
-
-// remove a char from the text in the search mode
-func (editor *Editor) removeCharFromSearchModeText() {
-	if len(editor.searchParams.buffers[ON_WHICHTEXT]) == 0 {
-		return
-	}
-	editor.searchParams.buffers[ON_WHICHTEXT] = editor.searchParams.buffers[ON_WHICHTEXT][:len(editor.searchParams.buffers[ON_WHICHTEXT])-1]
+	editor.realCursor = NewLocation(row, col+len(editor.input.buffers[INPUT_TEXT]))
 }
 
 // lookup a location in all the locations of the matching positions (after the search)
@@ -72,11 +64,6 @@ func (editor *Editor) lookupLocationInSearchLocations(loc Location) bool {
 	return false
 }
 
-// insert a char into the current searched text
-func (editor *Editor) insertCharToSearchedText(c rune) {
-	editor.searchParams.buffers[editor.searchParams.currentBuffer] += string(c)
-}
-
 // search a text in the editor buffer and set all the locations where found
 func (editor *Editor) updateSearchLocations(text string) {
 	editor.searchParams.locations = editor.buffer.Search(editor.realCursor, text)
@@ -88,8 +75,8 @@ func (e *Editor) replaceOnCursor() {
 		return
 	}
 
-	newText := e.searchParams.buffers[ON_NEWTEXT]
-	oldText := e.searchParams.buffers[ON_WHICHTEXT]
+	newText := e.input.buffers[NEW_TEXT]
+	oldText := e.input.buffers[INPUT_TEXT]
 	e.realCursor.SetCol(e.realCursor.GetCol() - len(oldText))
 
 	e.buffer.findAndReplace(newText, oldText, &e.realCursor)
@@ -109,13 +96,12 @@ func (editor *Editor) handleEscapeKeyInSearchMode() {
 		return
 	}
 
-	currentBuffer := editor.searchParams.currentBuffer
-	if currentBuffer == ON_WHICHTEXT {
+	if editor.getInputCurrentBuffer() == INPUT_TEXT {
 		editor.switchToNormalFromSearchMode()
 		return
 	}
 
-	editor.searchParams.currentBuffer = ON_WHICHTEXT
+	editor.setInputCurrentBuffer(INPUT_TEXT)
 }
 
 func (editor *Editor) handleEnterKeyInSearchMode() {
@@ -126,9 +112,9 @@ func (editor *Editor) handleEnterKeyInSearchMode() {
 		return
 	}
 
-	currentBuffer := editor.searchParams.currentBuffer
-	if currentBuffer == ON_WHICHTEXT {
-		editor.setSearchModeCurrentBuffer(ON_NEWTEXT)
+	if editor.getInputCurrentBuffer() == INPUT_TEXT {
+		editor.setInputCurrentBuffer(NEW_TEXT)
+		editor.setInputBufferInputRequestString("replace with: ")
 		return
 	}
 
@@ -151,12 +137,12 @@ func (editor *Editor) handleSearchModeEvent(ev tcell.Event) error {
 		case ev.Key() == tcell.KeyEscape:
 			editor.handleEscapeKeyInSearchMode()
 		case ev.Key() == tcell.KeyBackspace2:
-			editor.removeCharFromSearchModeText()
+			editor.removeCharFromInputBuffer()
 			shouldMakeSearch = true
 		case ev.Key() == tcell.KeyEnter:
 			editor.handleEnterKeyInSearchMode()
 		case ev.Key() == tcell.KeyRune:
-			editor.insertCharToSearchedText(ev.Rune())
+			editor.insertCharToInputBuffer(ev.Rune())
 			shouldMakeSearch = true
 		}
 	}
