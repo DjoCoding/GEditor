@@ -70,11 +70,6 @@ func (editor *Editor) updateSearchLocations(text string) {
 }
 
 func (e *Editor) replaceOnCursor() {
-	if len(e.searchParams.locations) == 0 {
-		e.switchToNormalFromSearchMode()
-		return
-	}
-
 	newText := e.input.buffers[NEW_TEXT]
 	oldText := e.input.buffers[INPUT_TEXT]
 	e.realCursor.setCol(e.realCursor.getCol() - len(oldText))
@@ -118,6 +113,11 @@ func (editor *Editor) handleEnterKeyInSearchMode() {
 		return
 	}
 
+	if len(editor.searchParams.locations) == 0 {
+		editor.switchToNormalFromSearchMode()
+		return
+	}
+
 	if !editor.searchParams.hasReplaced {
 		editor.replaceOnCursor()
 		return
@@ -144,6 +144,8 @@ func (editor *Editor) handleSearchModeEvent(ev tcell.Event) error {
 		case ev.Key() == tcell.KeyRune:
 			editor.insertCharToInputBuffer(ev.Rune())
 			shouldMakeSearch = true
+		case ev.Key() == tcell.KeyCtrlR:
+			editor.searchParams.whichMode = REPLACE
 		}
 	}
 
