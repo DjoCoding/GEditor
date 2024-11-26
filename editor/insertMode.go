@@ -227,7 +227,7 @@ func (editor *Editor) skipRightToken() {
 }
 
 func (editor *Editor) handleFileSavingInInsertMode() error {
-	if editor.config.Filepath != "" {
+	if editor.config.CurrentFile != "" {
 		return editor.save()
 	}
 
@@ -254,6 +254,8 @@ func (editor *Editor) handleCtrlCommandsInInsertMode(evKey tcell.EventKey) error
 	case tcell.KeyCtrlR:
 		editor.setSearchMode()
 		editor.setSearchSubMode(REPLACE)
+	case tcell.KeyCtrlP:
+		editor.setNavigationMode()
 	default:
 		break
 	}
@@ -268,7 +270,7 @@ func (editor *Editor) handleEnterKeyInInsertMode() error {
 			return nil
 		}
 
-		editor.config.Filepath = editor.input.buffers[editor.getInputCurrentBuffer()]
+		editor.config.CurrentFile = editor.input.buffers[editor.getInputCurrentBuffer()]
 		err := editor.save()
 		if err != nil {
 			return err

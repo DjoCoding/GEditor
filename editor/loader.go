@@ -1,13 +1,12 @@
 package editor
 
 import (
-	"fmt"
 	"os"
 )
 
 // load a file using the EditorConfiguration fields (passed as args)
 func (editor *Editor) loadFileFromConfiguration() error {
-	fileInfo, err := os.Stat(editor.config.Filepath)
+	fileInfo, err := os.Stat(editor.config.OpenedFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -16,13 +15,17 @@ func (editor *Editor) loadFileFromConfiguration() error {
 	}
 
 	if fileInfo.IsDir() {
-		return fmt.Errorf("can not open directories in this text editor")
+		editor.setNavigationMode()
+		return nil
 	}
 
-	fileContent, err := os.ReadFile(editor.config.Filepath)
+	editor.config.CurrentFile = editor.config.OpenedFile
+	fileContent, err := os.ReadFile(editor.config.CurrentFile)
 	if err != nil {
 		return err
 	}
+
+	editor.mode = INSERT_MODE
 
 	for _, c := range fileContent {
 		switch c {
@@ -50,7 +53,7 @@ func (editor *Editor) loadCharFromFile(c rune) error {
 // load file to the editor buffer
 // main function
 func (editor *Editor) Load() error {
-	if editor.config.Filepath == "" {
+	if editor.config.OpenedFile == "" {
 		return nil
 	}
 

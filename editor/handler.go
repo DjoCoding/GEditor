@@ -16,6 +16,8 @@ func (editor *Editor) HandleEvent(ev tcell.Event) error {
 		return editor.handleSearchModeEvent(ev)
 	case SELECTION_MODE:
 		return editor.handleSelectionModeEvent(ev)
+	case NAVIGATION_MODE:
+		return editor.handleNavigationModeEvent(ev)
 	}
 
 	return nil

@@ -27,17 +27,17 @@ func (editor *Editor) checkFileInfoAndGetFile(fileInfo os.FileInfo) (*os.File, e
 		return nil, fmt.Errorf("can not handle directories right now")
 	}
 
-	return os.OpenFile(editor.config.Filepath, os.O_WRONLY|os.O_TRUNC, fileInfo.Mode().Perm());
+	return os.OpenFile(editor.config.CurrentFile, os.O_WRONLY|os.O_TRUNC, fileInfo.Mode().Perm())
 }
 
 func (editor *Editor) getInputFile() (*os.File, error) {
-	fileInfo, err := os.Stat(editor.config.Filepath)
+	fileInfo, err := os.Stat(editor.config.CurrentFile)
 	if err == nil {
 		return editor.checkFileInfoAndGetFile(fileInfo)
 	}
 
 	if os.IsNotExist(err) {
-		return os.OpenFile(editor.config.Filepath, os.O_CREATE|os.O_WRONLY, 0644)
+		return os.OpenFile(editor.config.CurrentFile, os.O_CREATE|os.O_WRONLY, 0644)
 	}
 
 	panic("unhandled situation")
@@ -60,7 +60,7 @@ func (editor *Editor) saveFromConfiguration() error {
 
 // save into a hardcoded filepath
 func (editor *Editor) save() error {
-	if editor.config.Filepath != "" {
+	if editor.config.CurrentFile != "" {
 		return editor.saveFromConfiguration()
 	}
 

@@ -7,150 +7,178 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-func (editor *Editor) renderLineInNormalMode(lineIndex int, row int) {
-	line := editor.buffer.lines[lineIndex]
+func (e *Editor) renderLineInInsertMode(lineIndex int, row int) {
+	line := e.buffer.lines[lineIndex]
 
 	for i, c := range line.getContent() {
-		editor.screen.SetContent(i, row, c, nil, tcell.StyleDefault)
+		e.screen.SetContent(i, row, c, nil, tcell.StyleDefault)
 	}
 }
 
-func (editor *Editor) renderLineInSearchMode(lineIndex int, row int) {
+func (e *Editor) renderLineInSearchMode(lineIndex int, row int) {
 	style := tcell.StyleDefault.Bold(true).Underline(true).Background(tcell.ColorDarkCyan)
-	line := editor.buffer.lines[lineIndex]
+	line := e.buffer.lines[lineIndex]
 
 	count := 0
 
 	for i, c := range line.getContent() {
 		currentLocation := newLocation(lineIndex, i)
-		found := editor.lookupLocationInSearchLocations(currentLocation)
+		found := e.lookupLocationInSearchLocations(currentLocation)
 
 		if found {
-			count = len(editor.input.buffers[INPUT_TEXT])
+			count = len(e.input.buffers[INPUT_TEXT])
 		}
 
 		if count > 0 {
-			editor.screen.SetContent(i, row, c, nil, style)
+			e.screen.SetContent(i, row, c, nil, style)
 			count--
 			continue
 		}
 
-		editor.screen.SetContent(i, row, c, nil, tcell.StyleDefault)
+		e.screen.SetContent(i, row, c, nil, tcell.StyleDefault)
 	}
 }
 
-func (editor *Editor) renderLineInSelectionMode(lineIndex int, row int) {
+func (e *Editor) renderLineInSelectionMode(lineIndex int, row int) {
 	style := tcell.StyleDefault.Background(tcell.ColorBlue)
-	line := editor.buffer.lines[lineIndex]
+	line := e.buffer.lines[lineIndex]
 
 	for i, c := range line.getContent() {
 		currentLocation := newLocation(lineIndex, i)
-		if editor.checkLocationInSelectionModeBounds(currentLocation) {
-			editor.screen.SetContent(i, row, c, nil, style)
+		if e.checkLocationInSelectionModeBounds(currentLocation) {
+			e.screen.SetContent(i, row, c, nil, style)
 			continue
 		}
 
-		editor.screen.SetContent(i, row, c, nil, tcell.StyleDefault)
+		e.screen.SetContent(i, row, c, nil, tcell.StyleDefault)
 	}
 }
 
-func (editor *Editor) updateRenderingCursor() {
-	for editor.realCursor.getLine() < editor.renderingCursor.getLine()+UPPER_CURSOR_BOUNDS {
-		editor.renderingCursor.setLine(editor.renderingCursor.getLine() - 1)
-		if editor.renderingCursor.getLine() < 0 {
-			editor.renderingCursor.setLine(0)
+func (e *Editor) updateRenderingCursor() {
+	for e.realCursor.getLine() < e.renderingCursor.getLine()+UPPER_CURSOR_BOUNDS {
+		e.renderingCursor.setLine(e.renderingCursor.getLine() - 1)
+		if e.renderingCursor.getLine() < 0 {
+			e.renderingCursor.setLine(0)
 			return
 		}
 	}
 
-	_, h := editor.screen.Size()
+	_, h := e.screen.Size()
 	h -= BOTTOM_CURSOR_BOUNDS
-	for editor.realCursor.getLine() > editor.renderingCursor.getLine()+h-BOTTOM_CURSOR_BOUNDS {
-		editor.renderingCursor.setLine(editor.renderingCursor.getLine() + 1)
+	for e.realCursor.getLine() > e.renderingCursor.getLine()+h-BOTTOM_CURSOR_BOUNDS {
+		e.renderingCursor.setLine(e.renderingCursor.getLine() + 1)
 	}
 }
 
-func (editor *Editor) updateRelativeCursor() {
-	editor.relativeCursor.set(editor.realCursor.getLine()-editor.renderingCursor.getLine(), editor.realCursor.getCol()-editor.renderingCursor.getCol())
+func (e *Editor) updateRelativeCursor() {
+	e.relativeCursor.set(e.realCursor.getLine()-e.renderingCursor.getLine(), e.realCursor.getCol()-e.renderingCursor.getCol())
 }
 
-func (editor *Editor) getNumberLinesToRender() int {
-	_, h := editor.screen.Size()
+func (e *Editor) getNumberLinesToRender() int {
+	_, h := e.screen.Size()
 	h -= BOTTOM_CURSOR_BOUNDS
 
-	return int(math.Min(float64(h), float64(editor.buffer.count()-editor.renderingCursor.getLine())))
+	return int(math.Min(float64(h), float64(e.buffer.count()-e.renderingCursor.getLine())))
 }
 
-// render the content of the editor buffer in the normal mode
-func (editor *Editor) renderContentInNormalMode() {
-	numberLinesToRender := editor.getNumberLinesToRender()
+// render the content of the e buffer in the normal mode
+func (e *Editor) renderContentInInsertMode() {
+	numberLinesToRender := e.getNumberLinesToRender()
 	for i := 0; i < numberLinesToRender; i++ {
-		editor.renderLineInNormalMode(editor.renderingCursor.getLine()+i, i)
+		e.renderLineInInsertMode(e.renderingCursor.getLine()+i, i)
 	}
 }
 
-// render the content of the editor buffer in the search mode
-func (editor *Editor) renderContentInSearchMode() {
-	numberLinesToRender := editor.getNumberLinesToRender()
+// render the content of the e buffer in the search mode
+func (e *Editor) renderContentInSearchMode() {
+	numberLinesToRender := e.getNumberLinesToRender()
 	for i := 0; i < numberLinesToRender; i++ {
-		editor.renderLineInSearchMode(editor.renderingCursor.getLine()+i, i)
+		e.renderLineInSearchMode(e.renderingCursor.getLine()+i, i)
 	}
 }
 
-func (editor *Editor) renderContentInSelectionMode() {
-	numberLinesToRender := editor.getNumberLinesToRender()
+func (e *Editor) renderContentInSelectionMode() {
+	numberLinesToRender := e.getNumberLinesToRender()
 	for i := 0; i < numberLinesToRender; i++ {
-		editor.renderLineInSelectionMode(editor.renderingCursor.getLine()+i, i)
+		e.renderLineInSelectionMode(e.renderingCursor.getLine()+i, i)
 	}
 }
 
-// render the content of the editor buffer
-func (editor *Editor) renderContent() {
-	editor.updateRenderingCursor()
+// render the content of the e buffer
+func (e *Editor) renderContent() {
+	e.updateRenderingCursor()
 
-	switch editor.mode {
+	switch e.mode {
 	case INSERT_MODE:
-		editor.renderContentInNormalMode()
+		e.renderContentInInsertMode()
 	case SEARCH_MODE:
-		editor.renderContentInSearchMode()
+		e.renderContentInSearchMode()
 	case SELECTION_MODE:
-		editor.renderContentInSelectionMode()
+		e.renderContentInSelectionMode()
 	}
 }
 
-// render the cursor of the editor (real Cursor)
-func (editor *Editor) renderCursor() {
-	editor.updateRelativeCursor()
-	editor.screen.ShowCursor(editor.relativeCursor.getCol(), editor.relativeCursor.getLine())
+// render the cursor of the e (real Cursor)
+func (e *Editor) renderCursor() {
+	e.updateRelativeCursor()
+	e.screen.ShowCursor(e.relativeCursor.getCol(), e.relativeCursor.getLine())
 }
 
-// render any text to the editor screen (helper function)
-func (editor *Editor) renderText(line, col int, text string) {
+func (e *Editor) renderTextOnStyle(line, col int, text string, style tcell.Style) {
 	for i, c := range text {
-		editor.screen.SetContent(col+i, line, c, nil, tcell.StyleDefault)
+		e.screen.SetContent(col+i, line, c, nil, style)
 	}
+}
+
+// render any text to the e screen (helper function)
+func (e *Editor) renderText(line, col int, text string) {
+	e.renderTextOnStyle(line, col, text, tcell.StyleDefault)
 }
 
 // render information (mode, cursor)
-func (editor *Editor) renderInfo() {
-	lineString := strconv.Itoa(editor.realCursor.getLine())
-	colString := strconv.Itoa(editor.realCursor.getCol())
+func (e *Editor) renderInfo() {
+	lineString := strconv.Itoa(e.realCursor.getLine())
+	colString := strconv.Itoa(e.realCursor.getCol())
 
-	editor.renderText(LINE_CELL_ROW, LINE_CELL_COL, lineString)
-	editor.renderText(LINE_CELL_ROW, LINE_CELL_COL+len(lineString), ":")
-	editor.renderText(LINE_CELL_ROW, LINE_CELL_COL+len(lineString)+1, colString)
+	e.renderText(LINE_CELL_ROW, LINE_CELL_COL, lineString)
+	e.renderText(LINE_CELL_ROW, LINE_CELL_COL+len(lineString), ":")
+	e.renderText(LINE_CELL_ROW, LINE_CELL_COL+len(lineString)+1, colString)
 
-	if editor.inputBufferIsEnabled() {
-		textToRender := editor.input.req + editor.input.buffers[editor.getInputCurrentBuffer()]
-		editor.renderText(PROMPT_SCREEN_LINE_BEGIN+1, PROMPT_SCREEN_COL_BEGIN, textToRender)
+	if e.inputBufferIsEnabled() {
+		textToRender := e.input.req + e.input.buffers[e.getInputCurrentBuffer()]
+		e.renderText(PROMPT_SCREEN_LINE_BEGIN+1, PROMPT_SCREEN_COL_BEGIN, textToRender)
 	}
 }
 
+func (e *Editor) renderNavigation() {
+	for i, file := range e.navParams.files {
+		style := tcell.StyleDefault
+
+		if i == e.navParams.currentFileIndex {
+			style = style.Background(tcell.ColorGray)
+			if file.IsDir() {
+				style = style.Background(tcell.ColorDarkCyan)
+			}
+		}
+
+		e.renderTextOnStyle(i, 0, e.config.OpenedFile+"/"+file.Name(), style)
+	}
+}
+
+func (e *Editor) renderEditorTextOnScreen() {
+	if e.mode == NAVIGATION_MODE {
+		e.renderNavigation()
+		return
+	}
+
+	e.renderContent()
+	e.renderInfo()
+	e.renderCursor()
+}
+
 // render the content of the editor together with some information
-func (editor *Editor) Render() {
-	editor.screen.Clear()
-	editor.renderContent()
-	editor.renderInfo()
-	editor.renderCursor()
-	editor.screen.Show()
+func (e *Editor) Render() {
+	e.screen.Clear()
+	e.renderEditorTextOnScreen()
+	e.screen.Show()
 }

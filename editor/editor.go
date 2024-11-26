@@ -1,6 +1,8 @@
 package editor
 
 import (
+	"os"
+
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -25,6 +27,7 @@ const (
 	EXIT_MODE
 	SEARCH_MODE
 	SELECTION_MODE
+	NAVIGATION_MODE
 )
 
 const (
@@ -39,7 +42,8 @@ const (
 )
 
 type EditorConfiguration struct {
-	Filepath string
+	OpenedFile  string // can be a dir
+	CurrentFile string // current handled file
 }
 
 type EditorSelectionModeParams struct {
@@ -52,6 +56,11 @@ type EditorSearchModeParams struct {
 	current     int // points to the current location on which the cursor is focused
 	whichMode   int
 	hasReplaced bool
+}
+
+type EditorNavigationModeParams struct {
+	files            []os.DirEntry
+	currentFileIndex int
 }
 
 type EditorInternalInput struct {
@@ -71,6 +80,7 @@ type Editor struct {
 	mode            int
 	searchParams    EditorSearchModeParams
 	selParams       EditorSelectionModeParams
+	navParams       EditorNavigationModeParams
 	input           EditorInternalInput
 }
 
@@ -101,6 +111,7 @@ func New(editorConfig EditorConfiguration) (*Editor, error) {
 		searchParams:    EditorSearchModeParams{},
 		selParams:       EditorSelectionModeParams{},
 		input:           EditorInternalInput{},
+		navParams:       EditorNavigationModeParams{},
 	}, nil
 }
 
