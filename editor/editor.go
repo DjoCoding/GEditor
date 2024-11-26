@@ -131,7 +131,12 @@ func (editor *Editor) Quit() {
 }
 
 // quit the editor and save into a hardcoded filepath
-func (editor *Editor) quitAndSave() error {
+func (editor *Editor) saveAndquit() error {
 	editor.Quit()
-	return editor.save()
+
+	if editor.config.CurrentFile != "" {
+		return editor.save()
+	}
+
+	return nil
 }

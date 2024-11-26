@@ -43,8 +43,8 @@ func (editor *Editor) getInputFile() (*os.File, error) {
 	panic("unhandled situation")
 }
 
-// not implemented yet
-func (editor *Editor) saveFromConfiguration() error {
+// save into a hardcoded filepath
+func (editor *Editor) save() error {
 	f, err := editor.getInputFile()
 	if err != nil {
 		return err
@@ -56,19 +56,4 @@ func (editor *Editor) saveFromConfiguration() error {
 	}
 
 	return f.Close()
-}
-
-// save into a hardcoded filepath
-func (editor *Editor) save() error {
-	if editor.config.CurrentFile != "" {
-		return editor.saveFromConfiguration()
-	}
-
-	filepath := "./test"
-	f, err := os.OpenFile(filepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		return err
-	}
-
-	return editor.saveContent(f)
 }

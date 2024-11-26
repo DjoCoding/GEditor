@@ -1,6 +1,7 @@
 package editor
 
 import (
+	"os"
 	"unicode"
 
 	"github.com/gdamore/tcell/v2"
@@ -226,6 +227,10 @@ func (editor *Editor) skipRightToken() {
 	editor.moveCursorRight()
 }
 
+func writeFile(text string) {
+	os.WriteFile("djocoding", []byte(text), 0644)
+}
+
 func (editor *Editor) handleFileSavingInInsertMode() error {
 	if editor.config.CurrentFile != "" {
 		return editor.save()
@@ -255,7 +260,7 @@ func (editor *Editor) handleCtrlCommandsInInsertMode(evKey tcell.EventKey) error
 		editor.setSearchMode()
 		editor.setSearchSubMode(REPLACE)
 	case tcell.KeyCtrlP:
-		editor.setNavigationMode()
+		editor.setNavigationModeFromInsertMode()
 	default:
 		break
 	}
@@ -283,6 +288,23 @@ func (editor *Editor) handleEnterKeyInInsertMode() error {
 	return editor.insertNewLine()
 }
 
+func (editor *Editor) handleBackSpaceKeyInInsertMode() error {
+	if editor.inputBufferIsEnabled() {
+		editor.removeCharFromInputBuffer()
+		return nil
+	}
+
+	return editor.removeChar()
+}
+
+func (editor *Editor) handleRuneKeyInInsertMode(c rune) error {
+	if editor.inputBufferIsEnabled() {
+		editor.insertCharToInputBuffer(c)
+		return nil
+	}
+	return editor.insertChar(c)
+}
+
 // handle the normal mode commands
 func (editor *Editor) handleInsertModeEvent(ev tcell.Event) error {
 	switch ev := ev.(type) {
@@ -299,9 +321,9 @@ func (editor *Editor) handleInsertModeEvent(ev tcell.Event) error {
 
 		switch {
 		case ev.Key() == tcell.KeyEscape:
-			return editor.quitAndSave()
+			return editor.saveAndquit()
 		case ev.Key() == tcell.KeyBackspace2:
-			return editor.removeChar()
+			return editor.handleBackSpaceKeyInInsertMode()
 		case ev.Key() == tcell.KeyTab:
 			return editor.insertTab()
 		case ev.Key() == tcell.KeyEnter:
@@ -315,11 +337,7 @@ func (editor *Editor) handleInsertModeEvent(ev tcell.Event) error {
 		case ev.Key() == tcell.KeyRight:
 			editor.moveCursorRight()
 		case ev.Key() == tcell.KeyRune:
-			if editor.inputBufferIsEnabled() {
-				editor.insertCharToInputBuffer(ev.Rune())
-				return nil
-			}
-			return editor.insertChar(ev.Rune())
+			return editor.handleRuneKeyInInsertMode(ev.Rune())
 		default:
 			break
 		}

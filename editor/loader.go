@@ -19,13 +19,13 @@ func (editor *Editor) loadFileFromConfiguration() error {
 		return nil
 	}
 
+	editor.mode = INSERT_MODE
+
 	editor.config.CurrentFile = editor.config.OpenedFile
 	fileContent, err := os.ReadFile(editor.config.CurrentFile)
 	if err != nil {
 		return err
 	}
-
-	editor.mode = INSERT_MODE
 
 	for _, c := range fileContent {
 		switch c {

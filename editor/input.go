@@ -5,6 +5,7 @@ func (editor *Editor) setInputBufferInputRequestString(req string) {
 }
 
 func (editor *Editor) enableInputBuffer() {
+	editor.resetInput()
 	editor.input.enabled = true
 }
 
@@ -26,6 +27,10 @@ func (editor *Editor) insertCharToInputBuffer(c rune) {
 
 func (editor *Editor) removeCharFromInputBuffer() {
 	if !editor.inputBufferIsEnabled() {
+		return
+	}
+
+	if len(editor.input.buffers[editor.input.current]) == 0 {
 		return
 	}
 

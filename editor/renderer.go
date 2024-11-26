@@ -166,13 +166,14 @@ func (e *Editor) renderNavigation() {
 }
 
 func (e *Editor) renderEditorTextOnScreen() {
+	e.renderInfo()
+
 	if e.mode == NAVIGATION_MODE {
 		e.renderNavigation()
 		return
 	}
 
 	e.renderContent()
-	e.renderInfo()
 	e.renderCursor()
 }
 
