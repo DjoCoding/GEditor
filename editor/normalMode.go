@@ -255,6 +255,11 @@ func (editor *Editor) handleCtrlCommandsInNormalMode(evKey tcell.EventKey) error
 func (editor *Editor) handleNormalModeEvent(ev tcell.Event) error {
 	switch ev := ev.(type) {
 	case *tcell.EventKey:
+		if ev.Modifiers()&tcell.ModShift != 0 {
+			editor.setSelectionMode()
+			return editor.HandleEvent(ev)
+		}
+		
 		// handle the ctrl + `evKey.Key()` commands
 		if ev.Modifiers()&tcell.ModCtrl != 0 {
 			return editor.handleCtrlCommandsInNormalMode(*ev)

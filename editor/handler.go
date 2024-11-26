@@ -14,6 +14,8 @@ func (editor *Editor) HandleEvent(ev tcell.Event) error {
 		return editor.handleNormalModeEvent(ev)
 	case SEARCH_MODE:
 		return editor.handleSearchModeEvent(ev)
+	case SELECTION_MODE:
+		return editor.handleSelectionModeEvent(ev)
 	}
 
 	return nil

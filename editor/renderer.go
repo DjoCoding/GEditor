@@ -39,6 +39,21 @@ func (editor *Editor) renderLineInSearchMode(lineIndex int, row int) {
 	}
 }
 
+func (editor *Editor) renderLineInSelectionMode(lineIndex int, row int) {
+	style := tcell.StyleDefault.Background(tcell.ColorBlue)
+	line := editor.buffer.lines[lineIndex]
+
+	for i, c := range line.GetContent() {
+		currentLocation := NewLocation(lineIndex, i)
+		if editor.checkLocationInSelectionModeBounds(currentLocation) {
+			editor.screen.SetContent(i, row, c, nil, style)
+			continue
+		}
+
+		editor.screen.SetContent(i, row, c, nil, tcell.StyleDefault)
+	}
+}
+
 func (editor *Editor) updateRenderingCursor() {
 	for editor.realCursor.GetLine() < editor.renderingCursor.GetLine()+UPPER_CURSOR_BOUNDS {
 		editor.renderingCursor.SetLine(editor.renderingCursor.GetLine() - 1)
@@ -82,6 +97,13 @@ func (editor *Editor) renderContentInSearchMode() {
 	}
 }
 
+func (editor *Editor) renderContentInSelectionMode() {
+	numberLinesToRender := editor.getNumberLinesToRender()
+	for i := 0; i < numberLinesToRender; i++ {
+		editor.renderLineInSelectionMode(editor.renderingCursor.GetLine()+i, i)
+	}
+}
+
 // render the content of the editor buffer
 func (editor *Editor) renderContent() {
 	editor.updateRenderingCursor()
@@ -91,6 +113,8 @@ func (editor *Editor) renderContent() {
 		editor.renderContentInNormalMode()
 	case SEARCH_MODE:
 		editor.renderContentInSearchMode()
+	case SELECTION_MODE:
+		editor.renderContentInSelectionMode()
 	}
 }
 

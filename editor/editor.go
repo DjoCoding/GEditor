@@ -24,6 +24,7 @@ const (
 	INSERT_MODE = iota
 	EXIT_MODE
 	SEARCH_MODE
+	SELECTION_MODE
 )
 
 const (
@@ -39,6 +40,11 @@ const (
 
 type EditorConfiguration struct {
 	Filepath *string
+}
+
+type EditorSelectionModeParams struct {
+	startLocation Location
+	endLocation   Location
 }
 
 type EditorSearchModeParams struct {
@@ -59,6 +65,7 @@ type Editor struct {
 	config          EditorConfiguration
 	mode            int
 	searchParams    EditorSearchModeParams
+	selParams       EditorSelectionModeParams
 }
 
 // constructor for the editor structure
@@ -86,6 +93,7 @@ func New(editorConfig EditorConfiguration) (*Editor, error) {
 		mode:            INSERT_MODE,
 		config:          editorConfig,
 		searchParams:    EditorSearchModeParams{},
+		selParams:       EditorSelectionModeParams{},
 	}, nil
 }
 

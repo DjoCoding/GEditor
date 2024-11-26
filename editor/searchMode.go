@@ -101,6 +101,46 @@ func (e *Editor) replaceOnCursor() {
 	e.realCursor = currentLocation
 }
 
+func (editor *Editor) handleEscapeKeyInSearchMode() {
+	mode := editor.searchParams.whichMode
+
+	if mode == SEARCH {
+		editor.switchToNormalFromSearchMode()
+		return
+	}
+
+	currentBuffer := editor.searchParams.currentBuffer
+	if currentBuffer == ON_WHICHTEXT {
+		editor.switchToNormalFromSearchMode()
+		return
+	}
+
+	editor.searchParams.currentBuffer = ON_WHICHTEXT
+}
+
+func (editor *Editor) handleEnterKeyInSearchMode() {
+	mode := editor.searchParams.whichMode
+
+	if mode == SEARCH {
+		editor.updateSearchPointer()
+		return
+	}
+
+	currentBuffer := editor.searchParams.currentBuffer
+	if currentBuffer == ON_WHICHTEXT {
+		editor.setSearchModeCurrentBuffer(ON_NEWTEXT)
+		return
+	}
+
+	if !editor.searchParams.hasReplaced {
+		editor.replaceOnCursor()
+		return
+	}
+
+	editor.searchAndSetCursor()
+	editor.searchParams.hasReplaced = false
+}
+
 // handle search mode commands
 func (editor *Editor) handleSearchModeEvent(ev tcell.Event) error {
 	shouldMakeSearch := false
@@ -109,42 +149,12 @@ func (editor *Editor) handleSearchModeEvent(ev tcell.Event) error {
 	case *tcell.EventKey:
 		switch {
 		case ev.Key() == tcell.KeyEscape:
-			switch editor.searchParams.whichMode {
-			case REPLACE:
-				switch editor.searchParams.currentBuffer {
-				case ON_NEWTEXT:
-					editor.searchParams.currentBuffer = ON_WHICHTEXT
-				default:
-					editor.switchToNormalFromSearchMode()
-				}
-
-			default:
-				editor.switchToNormalFromSearchMode()
-			}
-
+			editor.handleEscapeKeyInSearchMode()
 		case ev.Key() == tcell.KeyBackspace2:
 			editor.removeCharFromSearchModeText()
 			shouldMakeSearch = true
-
 		case ev.Key() == tcell.KeyEnter:
-			switch editor.searchParams.whichMode {
-			case SEARCH:
-				editor.updateSearchPointer()
-			case REPLACE:
-				if editor.searchParams.currentBuffer == ON_NEWTEXT {
-					switch editor.searchParams.hasReplaced {
-					case true:
-						editor.searchAndSetCursor()
-						editor.searchParams.hasReplaced = false
-					default:
-						editor.replaceOnCursor()
-					}
-
-				} else {
-					editor.setSearchModeCurrentBuffer(ON_NEWTEXT)
-				}
-			}
-
+			editor.handleEnterKeyInSearchMode()
 		case ev.Key() == tcell.KeyRune:
 			editor.insertCharToSearchedText(ev.Rune())
 			shouldMakeSearch = true
